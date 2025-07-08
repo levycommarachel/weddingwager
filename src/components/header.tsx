@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Gem, Coins, LogOut, Menu, Shield, Trophy, Ticket } from "lucide-react";
+import { Gem, Coins, LogOut, Menu, Shield, Trophy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
@@ -31,7 +31,6 @@ export default function Header() {
 
   const navLinks = [
     { href: "/betting", label: "All Wagers", icon: <Gem className="h-4 w-4" /> },
-    { href: "/my-wagers", label: "My Wagers", icon: <Ticket className="h-4 w-4" /> },
     { href: "/leaderboard", label: "Leaderboard", icon: <Trophy className="h-4 w-4" /> },
   ];
 

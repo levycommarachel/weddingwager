@@ -10,11 +10,9 @@ import { useUser } from './UserContext';
 
 interface BetContextType {
   bets: Bet[];
-  myWagers: Map<string, Wager>; // Key is betId
   loading: boolean;
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
-  cancelWager: (wagerId: string) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
   seedInitialBets: () => Promise<void>;
 }
@@ -23,7 +21,6 @@ const BetContext = createContext<BetContextType | undefined>(undefined);
 
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
-  const [myWagers, setMyWagers] = useState<Map<string, Wager>>(new Map());
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
@@ -53,28 +50,6 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, [toast]);
-
-  // Listen for the current user's wagers
-  useEffect(() => {
-    if (!user || !db) {
-        setMyWagers(new Map()); // Clear wagers if user logs out
-        return;
-    }
-
-    const q = query(collection(db, "wagers"), where("userId", "==", user.uid));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-        const wagersData = new Map<string, Wager>();
-        snapshot.docs.forEach(doc => {
-            const wager = { id: doc.id, ...doc.data() } as Wager;
-            wagersData.set(wager.betId, wager);
-        });
-        setMyWagers(wagersData);
-    }, (error) => {
-        console.error("Wager listener error:", error);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
 
   const showFirebaseDisabledToast = () => {
     toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
@@ -137,6 +112,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
     const betRef = doc(db, "bets", betId);
     const userRef = doc(db, "users", user.uid);
+    const wagersQuery = query(collection(db, "wagers"), where("userId", "==", user.uid), where("betId", "==", betId));
     
     await runTransaction(db, async (transaction) => {
         const userDoc = await transaction.get(userRef);
@@ -144,64 +120,29 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         
         if (!betDoc.exists()) throw new Error("Bet does not exist!");
         if (!userDoc.exists()) throw new Error("User data not found.");
-        
-        const wagersQuery = query(collection(db, "wagers"), where("userId", "==", user.uid), where("betId", "==", betId));
-        const existingWagers = await getDocs(wagersQuery);
-        const existingWagerDoc = existingWagers.docs[0];
 
-        const oldAmount = existingWagerDoc ? existingWagerDoc.data().amount : 0;
-        const amountDifference = amount - oldAmount;
+        const existingWagers = await getDocs(wagersQuery);
+        if (!existingWagers.empty) {
+            throw new Error("You have already placed a wager on this bet.");
+        }
         
-        if (userDoc.data().balance < amountDifference) {
+        if (userDoc.data().balance < amount) {
             throw new Error("Insufficient balance.");
         }
 
-        // Update balance and pool based on the *difference*
-        transaction.update(userRef, { balance: increment(-amountDifference) });
-        transaction.update(betRef, { pool: increment(amountDifference) });
+        transaction.update(userRef, { balance: increment(-amount) });
+        transaction.update(betRef, { pool: increment(amount) });
 
-        if (existingWagerDoc) {
-            // Update existing wager
-            transaction.update(existingWagerDoc.ref, { amount, outcome, createdAt: serverTimestamp() });
-        } else {
-            // Create new wager
-            const newWagerRef = doc(collection(db, "wagers"));
-            transaction.set(newWagerRef, {
-                userId: user.uid,
-                nickname: userDoc.data().nickname,
-                betId,
-                amount,
-                outcome,
-                createdAt: serverTimestamp(),
-            });
-        }
+        const newWagerRef = doc(collection(db, "wagers"));
+        transaction.set(newWagerRef, {
+            userId: user.uid,
+            nickname: userDoc.data().nickname,
+            betId,
+            amount,
+            outcome,
+            createdAt: serverTimestamp(),
+        });
     });
-  };
-  
-  const cancelWager = async (wagerId: string) => {
-      if (!firebaseEnabled || !db || !user) {
-        showFirebaseDisabledToast();
-        if (!user) throw new Error("User not authenticated");
-        return;
-      }
-      
-      const wagerRef = doc(db, 'wagers', wagerId);
-      const userRef = doc(db, 'users', user.uid);
-      
-      await runTransaction(db, async (transaction) => {
-        const wagerDoc = await transaction.get(wagerRef);
-        if (!wagerDoc.exists()) throw new Error("Wager not found.");
-
-        const { amount, betId } = wagerDoc.data();
-        const betRef = doc(db, 'bets', betId);
-        
-        // Refund user and decrement pool
-        transaction.update(userRef, { balance: increment(amount) });
-        transaction.update(betRef, { pool: increment(-amount) });
-        
-        // Delete wager
-        transaction.delete(wagerRef);
-      });
   };
 
   const settleBet = async (betId: string, winningOutcome: string | number) => {
@@ -256,7 +197,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, loading, addBet, placeBet, cancelWager, settleBet, seedInitialBets }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, seedInitialBets }}>
       {children}
     </BetContext.Provider>
   );
