@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, DatabaseZap } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -54,9 +55,11 @@ const betFormSchema = z.object({
 
 
 export default function AdminPage() {
-    const { bets, addBet, settleBet } = useBets();
+    const { bets, addBet, settleBet, seedInitialBets } = useBets();
     const { userData, loading: userLoading } = useUser();
+    
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSeeding, setIsSeeding] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
@@ -104,6 +107,12 @@ export default function AdminPage() {
             setWinningOutcome('');
         }
     }
+    
+    const handleSeedBets = async () => {
+        setIsSeeding(true);
+        await seedInitialBets();
+        setIsSeeding(false);
+    }
 
     if (userLoading) {
         return (
@@ -145,7 +154,26 @@ export default function AdminPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1">
+                    <div className="lg:col-span-1 space-y-8">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 font-headline text-2xl">
+                                    <DatabaseZap />
+                                    Database Setup
+                                </CardTitle>
+                                <CardDescription>Initialize the app with starting bets.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground mb-4">
+                                    Click to add the three initial wedding bets. This should only be done once on a clean database.
+                                </p>
+                                <Button onClick={handleSeedBets} disabled={isSeeding || bets.length > 0}>
+                                    {isSeeding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Seed Initial Bets
+                                </Button>
+                            </CardContent>
+                        </Card>
+
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2 font-headline text-2xl">
