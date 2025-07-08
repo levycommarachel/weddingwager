@@ -38,21 +38,22 @@ export default function LeaderboardPage() {
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const usersData = querySnapshot.docs.map(doc => {
                 const data = doc.data() as UserData;
-                // Ensure balance is a number, defaulting to 0 if not.
-                data.balance = typeof data.balance === 'number' ? data.balance : 0;
+                // Ensure balance is a valid number, defaulting to 0 if not.
+                data.balance = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : 0;
                 return { id: doc.id, ...data };
             });
 
+            // Correct ranking logic that handles ties
             const rankedUsers: LeaderboardUser[] = [];
-            let rank = 0;
-            let lastBalance = Infinity;
-            usersData.forEach((user, index) => {
-                if (user.balance < lastBalance) {
-                    rank = index + 1;
+            let rank = 1;
+            for (let i = 0; i < usersData.length; i++) {
+                // If it's not the first user and their balance is less than the previous user's,
+                // they get the new rank (their index + 1). Otherwise, they share the previous rank.
+                if (i > 0 && usersData[i].balance < usersData[i - 1].balance) {
+                    rank = i + 1;
                 }
-                rankedUsers.push({ ...user, rank: rank });
-                lastBalance = user.balance;
-            });
+                rankedUsers.push({ ...usersData[i], rank });
+            }
             
             setLeaderboard(rankedUsers);
             setLoading(false);
@@ -107,7 +108,7 @@ export default function LeaderboardPage() {
                         </div>
                     </TableCell>
                     <TableCell className="text-right font-mono font-semibold">
-                        {typeof player.balance === 'number' ? player.balance.toLocaleString() : '0'} Pts
+                        {player.balance.toLocaleString()} Pts
                     </TableCell>
                 </TableRow>
                 ))}
