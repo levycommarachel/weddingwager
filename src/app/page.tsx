@@ -32,12 +32,12 @@ export default function LoginPage() {
     defaultValues: { nickname: '' },
   });
   
-  // Redirect if user and their data are fully loaded, but not while a new login is being submitted.
+  // Redirect if user and their data are fully loaded.
   useEffect(() => {
-    if (!userLoading && user && userData && !isSubmitting) {
+    if (!userLoading && user && userData) {
       router.replace('/betting');
     }
-  }, [user, userData, userLoading, isSubmitting, router]);
+  }, [user, userData, userLoading, router]);
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsSubmitting(true);
@@ -73,13 +73,13 @@ export default function LoginPage() {
             });
         }
       console.error(error);
-      setIsSubmitting(false); // Ensure submitting is reset on error
-    } 
-    // No finally block needed for setIsSubmitting, as the redirect will happen on state change.
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   // Show a loader while checking auth state or if user is already logged in
-  if (userLoading || (user && userData && !isSubmitting)) {
+  if (userLoading || (user && userData)) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
