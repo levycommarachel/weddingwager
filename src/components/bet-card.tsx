@@ -16,7 +16,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useUser } from "@/context/UserContext";
 import { useBets, type Bet } from "@/context/BetContext";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2 } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface BetCardProps {
   bet: Bet;
@@ -39,6 +40,8 @@ export default function BetCard({ bet }: BetCardProps) {
   const [betValue, setBetValue] = useState(
     bet.type === 'range' && bet.range ? bet.range[0] : (bet.options ? bet.options[0] : '')
   );
+
+  const isClosed = bet.status !== 'open';
 
   const handlePlaceBet = async () => {
     if (!userData) return;
@@ -83,6 +86,43 @@ export default function BetCard({ bet }: BetCardProps) {
   };
 
   const Icon = iconMap[bet.icon] || Users;
+
+  if (isClosed) {
+    return (
+       <Card className="overflow-hidden shadow-lg bg-muted/30 border-dashed">
+            <CardHeader className="p-4 border-b">
+                 <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                         <div className="bg-primary/20 p-3 rounded-full">
+                            <Icon className="h-6 w-6 text-primary-foreground" />
+                        </div>
+                        <div className="flex-1">
+                            <CardTitle className="font-headline text-xl leading-tight">{bet.question}</CardTitle>
+                        </div>
+                    </div>
+                     <Badge variant="secondary">Closed</Badge>
+                </div>
+                 <div className="flex items-center gap-4 text-sm text-muted-foreground mt-3">
+                    <div className="flex items-center gap-1">
+                        <Coins className="h-4 w-4" />
+                        <span>{bet.pool.toLocaleString()} Points Pooled</span>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="p-6">
+                <div className="space-y-2">
+                    <Label className="font-bold text-base text-muted-foreground">Winning Outcome</Label>
+                    <div className="flex items-center gap-3 bg-background p-4 rounded-md border">
+                        <CheckCircle2 className="h-6 w-6 text-green-500" />
+                        <p className="text-xl font-bold text-foreground">
+                            {bet.winningOutcome}
+                        </p>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+  }
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
