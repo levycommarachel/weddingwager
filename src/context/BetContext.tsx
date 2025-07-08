@@ -267,23 +267,20 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Firebase not configured or user not logged in");
     }
     const adminUid = user.uid;
-
-    const batch = writeBatch(db);
-
+  
     const collectionsToDelete = ['wagers', 'bets', 'users'];
     for (const collectionName of collectionsToDelete) {
+      const batch = writeBatch(db);
       const snapshot = await getDocs(collection(db, collectionName));
       snapshot.docs.forEach((doc) => {
-        // Crucially, don't delete the currently logged-in admin's user document
         if (collectionName === 'users' && doc.id === adminUid) {
-          return; // Skip
+          return; // Skip deleting the admin's own user document
         }
         batch.delete(doc.ref);
       });
+      await batch.commit(); // Commit one batch per collection
     }
-
-    await batch.commit();
-
+  
     // Resetting the hasSeeded flag so initial bets are re-seeded
     hasSeeded.current = false;
     await seedInitialBets(db);
