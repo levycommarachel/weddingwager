@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -15,19 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useUser } from "@/context/UserContext";
+import { useBets, type Bet } from "@/context/BetContext";
 import { useToast } from "@/hooks/use-toast";
 import { Coins, Users, Clock, CakeSlice, Mic } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-export type Bet = {
-  id: number;
-  question: string;
-  type: 'range' | 'options';
-  range?: [number, number];
-  options?: string[];
-  pool: number;
-  icon: string;
-};
 
 interface BetCardProps {
   bet: Bet;
@@ -42,6 +31,7 @@ const iconMap: { [key: string]: React.ElementType } = {
 
 export default function BetCard({ bet }: BetCardProps) {
   const { balance, setBalance } = useUser();
+  const { updateBetPool } = useBets();
   const { toast } = useToast();
   const [betAmount, setBetAmount] = useState<number | string>(100);
   const [betValue, setBetValue] = useState(
@@ -68,12 +58,12 @@ export default function BetCard({ bet }: BetCardProps) {
     }
 
     setBalance((prev) => prev - numericBetAmount);
+    updateBetPool(bet.id, numericBetAmount);
     toast({
       title: "Bet Placed!",
       description: `You wagered ${numericBetAmount} points on "${bet.question}". Good luck!`,
-      className: "bg-lime-500 text-white"
     });
-    // In a real app, this would also update the bet pool and user's bet history on the backend.
+    // In a real app, this would also update the user's bet history on the backend.
   };
 
   const Icon = iconMap[bet.icon] || Users;

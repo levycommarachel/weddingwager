@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Gem, Coins, LogOut, Menu, User, Sparkles } from "lucide-react";
+import { Gem, Coins, LogOut, Menu, Sparkles, Shield, Trophy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useUser } from "@/context/UserContext";
@@ -31,6 +31,8 @@ export default function Header() {
   const navLinks = [
     { href: "/betting", label: "All Bets", icon: <Gem className="h-4 w-4" /> },
     { href: "/generate-bets", label: "AI Bet Generator", icon: <Sparkles className="h-4 w-4" /> },
+    { href: "/leaderboard", label: "Leaderboard", icon: <Trophy className="h-4 w-4" /> },
+    { href: "/admin", label: "Admin", icon: <Shield className="h-4 w-4" /> },
   ];
 
   return (
