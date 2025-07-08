@@ -6,6 +6,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Gem, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { collection, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
+import { db } from '@/lib/firebase';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +16,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useUser } from '@/context/UserContext';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
 
 const loginSchema = z.object({
   nickname: z.string().min(3, { message: 'Nickname must be at least 3 characters long.' }).max(20, { message: 'Nickname must be 20 characters or less.' }),
@@ -34,6 +36,53 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await login(values.nickname);
+
+      if (db) {
+        const betsCollectionRef = collection(db, 'bets');
+        const betsSnapshot = await getDocs(betsCollectionRef);
+
+        if (betsSnapshot.empty) {
+          console.log("No bets found. Seeding initial bets...");
+          const batch = writeBatch(db);
+          
+          const bet1Data = {
+            question: "Will Michelle wear a veil?",
+            type: 'options',
+            options: ['Yes', 'No'],
+            icon: 'Users',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          };
+          batch.set(doc(betsCollectionRef), bet1Data);
+      
+          const bet2Data = {
+            question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)",
+            type: 'options',
+            options: ['Yes', 'No'],
+            icon: 'Clock',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          };
+          batch.set(doc(betsCollectionRef), bet2Data);
+      
+          const bet3Data = {
+            question: "Will Adam cry during the ceremony?",
+            type: 'options',
+            options: ['Yes', 'No'],
+            icon: 'Mic',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          };
+          batch.set(doc(betsCollectionRef), bet3Data);
+      
+          await batch.commit();
+          console.log("Initial bets seeded successfully.");
+        }
+      }
+
       toast({
         title: `Welcome, ${values.nickname}!`,
         description: "Let the games begin. Good luck!",

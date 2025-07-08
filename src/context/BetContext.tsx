@@ -20,59 +20,9 @@ interface BetContextType {
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
-  seedInitialBets: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
-
-// This helper function will create the initial bets.
-async function seedInitialBets(db: Firestore) {
-  const betsCollection = collection(db, 'bets');
-  try {
-    console.log("Seeding initial bets...");
-    const batch = writeBatch(db);
-    
-    const bet1Data = {
-      question: "Will Michelle wear a veil?",
-      type: 'options',
-      options: ['Yes', 'No'],
-      icon: 'Users',
-      pool: 0,
-      status: 'open',
-      createdAt: serverTimestamp(),
-    };
-    batch.set(doc(betsCollection), bet1Data);
-
-    const bet2Data = {
-      question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)",
-      type: 'options',
-      options: ['Yes', 'No'],
-      icon: 'Clock',
-      pool: 0,
-      status: 'open',
-      createdAt: serverTimestamp(),
-    };
-    batch.set(doc(betsCollection), bet2Data);
-
-    const bet3Data = {
-      question: "Will Adam cry during the ceremony?",
-      type: 'options',
-      options: ['Yes', 'No'],
-      icon: 'Mic',
-      pool: 0,
-      status: 'open',
-      createdAt: serverTimestamp(),
-    };
-    batch.set(doc(betsCollection), bet3Data);
-
-    await batch.commit();
-    console.log("Initial bets seeded successfully.");
-  } catch (error) {
-    console.error("Error seeding bets: ", error);
-    // Re-throw the error to be caught by the caller
-    throw error;
-  }
-};
 
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
@@ -86,7 +36,6 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    // Remove orderBy from query to prevent index-related permission errors
     const q = query(collection(db, "bets"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
@@ -248,30 +197,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const handleSeedInitialBets = async () => {
-    if (!firebaseEnabled || !db) {
-      showFirebaseDisabledToast();
-      return;
-    }
-    try {
-      await seedInitialBets(db);
-      toast({
-        title: "Bets Seeded!",
-        description: "The initial three bets have been successfully created.",
-      });
-    } catch (error) {
-      console.error("Error seeding bets from handler: ", error);
-      const errorMessage = error instanceof Error ? error.message : "Could not seed bets.";
-      toast({
-        variant: 'destructive',
-        title: 'Seeding Failed',
-        description: errorMessage,
-      });
-    }
-  };
-
   return (
-    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, seedInitialBets: handleSeedInitialBets }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet }}>
       {children}
     </BetContext.Provider>
   );
