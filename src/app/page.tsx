@@ -1,3 +1,76 @@
-export default function Home() {
-  return <></>;
+"use client";
+
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Gem } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useUser } from '@/context/UserContext';
+import { useToast } from '@/hooks/use-toast';
+
+const loginSchema = z.object({
+  nickname: z.string().min(3, { message: 'Nickname must be at least 3 characters long.' }).max(20, { message: 'Nickname must be 20 characters or less.' }),
+});
+
+export default function LoginPage() {
+  const router = useRouter();
+  const { setNickname } = useUser();
+  const { toast } = useToast();
+
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: { nickname: '' },
+  });
+
+  function onSubmit(values: z.infer<typeof loginSchema>) {
+    setNickname(values.nickname);
+    toast({
+      title: `Welcome, ${values.nickname}!`,
+      description: "Let the games begin. Good luck!",
+    });
+    router.push('/betting');
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      <div className="flex flex-col items-center justify-center text-center mb-8">
+        <Gem className="h-12 w-12 text-primary" />
+        <h1 className="font-headline text-5xl font-bold mt-4">Wedding Wager</h1>
+        <p className="text-muted-foreground mt-2 text-lg">Place your bets on the big day!</p>
+      </div>
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="font-headline text-2xl">Join the Fun</CardTitle>
+          <CardDescription>Enter a nickname to start playing.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="nickname"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Your Nickname</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., BestMan4Ever" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full">
+                Let's Go!
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </main>
+  );
 }
