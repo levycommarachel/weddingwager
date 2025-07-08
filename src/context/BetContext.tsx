@@ -1,9 +1,10 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, orderBy, type Firestore } from 'firebase/firestore';
 import type { Bet, Wager } from '@/types';
 import { useUser } from './UserContext';
 
@@ -69,6 +70,7 @@ async function seedInitialBets(db: Firestore) {
     });
 
     await batch.commit();
+    console.log("Initial bets seeded successfully.");
   } catch (error) {
     console.error("Error seeding bets: ", error);
     throw new Error('Could not add initial bets.');
@@ -79,7 +81,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, userData } = useUser();
   const hasSeeded = React.useRef(false);
 
   useEffect(() => {
@@ -89,18 +91,26 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const runInitialSeed = async () => {
-      if (process.env.NODE_ENV === 'development' && hasSeeded.current) return;
+      if (hasSeeded.current) return;
+      
+      if (userData?.isAdmin) {
+        hasSeeded.current = true;
         try {
+            console.log("Admin user detected, attempting to seed initial bets.");
             await seedInitialBets(db);
-            hasSeeded.current = true;
         } catch (error) {
             console.error("Failed to run initial seed:", error);
             toast({ variant: 'destructive', title: 'Seeding Error', description: 'Could not create initial bets.' });
         }
+      }
     }
-    runInitialSeed();
     
-    const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
+    if (user && userData) {
+      runInitialSeed();
+    }
+    
+    const q = query(collection(db, "bets"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -114,7 +124,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, [toast, user, userData]);
 
   const showFirebaseDisabledToast = () => {
     toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
