@@ -5,7 +5,6 @@ import { auth, db, firebaseEnabled } from '@/lib/firebase';
 import { onAuthStateChanged, signInAnonymously, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import type { UserData } from '@/types';
-import { useToast } from '@/hooks/use-toast';
 
 interface UserContextType {
   user: FirebaseUser | null;
@@ -21,7 +20,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!firebaseEnabled || !auth) {
@@ -62,11 +60,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (nickname: string) => {
     if (!firebaseEnabled || !auth || !db) {
-      toast({
-        variant: 'destructive',
-        title: 'Offline Mode',
-        description: "Firebase is not configured. Cannot log in.",
-      });
       throw new Error("Firebase not configured");
     }
     
@@ -84,14 +77,6 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
           });
         }
     } catch (error: any) {
-        if (error.code === 'auth/configuration-not-found') {
-            toast({
-                variant: 'destructive',
-                title: 'Authentication Error',
-                description: 'Anonymous sign-in is not enabled. Please enable it in your Firebase project settings under Authentication > Sign-in method.',
-                duration: 9000,
-            });
-        }
         console.error("Firebase login error:", error);
         throw error; // re-throw to be caught by the UI form
     }

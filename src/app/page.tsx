@@ -38,12 +38,21 @@ export default function LoginPage() {
         description: "Let the games begin. Good luck!",
       });
       router.push('/betting');
-    } catch (error) {
-       toast({
-        variant: 'destructive',
-        title: `Login Failed`,
-        description: "Could not log in. Please try again.",
-      });
+    } catch (error: any) {
+       if (error?.code === 'auth/configuration-not-found') {
+            toast({
+                variant: 'destructive',
+                title: 'Authentication Error',
+                description: 'Anonymous sign-in is not enabled. Please enable it in your Firebase project settings.',
+                duration: 9000,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: `Login Failed`,
+                description: error.message || "Could not log in. Please try again.",
+            });
+        }
       console.error(error);
       setIsSubmitting(false);
     }
