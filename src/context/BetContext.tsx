@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -27,6 +28,12 @@ const BetContext = createContext<BetContextType | undefined>(undefined);
 async function seedInitialBets(db: Firestore) {
   const betsCollection = collection(db, 'bets');
   try {
+    const existingBets = await getDocs(betsCollection);
+    if (!existingBets.empty) {
+      console.log("Bets collection is not empty, skipping seed.");
+      return;
+    }
+
     console.log("Seeding initial bets...");
     const batch = writeBatch(db);
     
@@ -75,6 +82,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
+  const hasSeeded = React.useRef(false);
 
   useEffect(() => {
     if (!firebaseEnabled || !db) {
@@ -83,12 +91,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const runInitialSeed = async () => {
+      if (process.env.NODE_ENV === 'development' && hasSeeded.current) return;
         try {
-            const betsCollection = collection(db, 'bets');
-            const existingBets = await getDocs(betsCollection);
-            if (existingBets.empty) {
-                await seedInitialBets(db);
-            }
+            await seedInitialBets(db);
+            hasSeeded.current = true;
         } catch (error) {
             console.error("Failed to run initial seed:", error);
             toast({ variant: 'destructive', title: 'Seeding Error', description: 'Could not create initial bets.' });
@@ -257,20 +263,29 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const purgeAndReseedDatabase = async () => {
-    if (!firebaseEnabled || !db) {
-      throw new Error("Firebase not configured");
+    if (!firebaseEnabled || !db || !user) {
+      throw new Error("Firebase not configured or user not logged in");
     }
+    const adminUid = user.uid;
 
     const batch = writeBatch(db);
 
     const collectionsToDelete = ['wagers', 'bets', 'users'];
     for (const collectionName of collectionsToDelete) {
       const snapshot = await getDocs(collection(db, collectionName));
-      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+      snapshot.docs.forEach((doc) => {
+        // Crucially, don't delete the currently logged-in admin's user document
+        if (collectionName === 'users' && doc.id === adminUid) {
+          return; // Skip
+        }
+        batch.delete(doc.ref);
+      });
     }
 
     await batch.commit();
 
+    // Resetting the hasSeeded flag so initial bets are re-seeded
+    hasSeeded.current = false;
     await seedInitialBets(db);
   };
 
