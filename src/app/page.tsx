@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRouter } from 'next/navigation';
@@ -44,6 +45,13 @@ export default function LoginPage() {
                 variant: 'destructive',
                 title: 'Authentication Error',
                 description: 'Anonymous sign-in is not enabled. Please enable it in your Firebase project settings.',
+                duration: 9000,
+            });
+        } else if (error.message?.includes('client is offline')) {
+            toast({
+                variant: 'destructive',
+                title: 'Database Error',
+                description: 'Could not connect to the database. Please enable Firestore in your Firebase project settings.',
                 duration: 9000,
             });
         } else {
