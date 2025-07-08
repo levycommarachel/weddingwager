@@ -39,8 +39,8 @@ export default function LeaderboardPage() {
             const usersData = querySnapshot.docs.map(doc => {
                 const data = doc.data() as UserData;
                 // Ensure balance is a valid number, defaulting to 0 if not.
-                data.balance = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : 0;
-                return { id: doc.id, ...data };
+                const balance = typeof data.balance === 'number' && !isNaN(data.balance) ? data.balance : 0;
+                return { id: doc.id, ...data, balance };
             });
 
             // Correct ranking logic that handles ties
@@ -87,7 +87,7 @@ export default function LeaderboardPage() {
                 Top Players
             </CardTitle>
             <CardDescription>Current standings based on total points.</CardDescription>
-        </Header>
+        </CardHeader>
         <CardContent>
             <Table>
             <TableHeader>
