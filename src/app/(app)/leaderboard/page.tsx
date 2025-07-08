@@ -83,7 +83,7 @@ export default function LeaderboardPage() {
                             <span className="font-medium">{player.nickname}</span>
                         </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono font-semibold">{player.balance.toLocaleString()} Pts</TableCell>
+                    <TableCell className="text-right font-mono font-semibold">{(player.balance || 0).toLocaleString()} Pts</TableCell>
                 </TableRow>
                 ))}
             </TableBody>
