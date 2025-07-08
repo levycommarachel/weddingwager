@@ -32,8 +32,11 @@ export default function Header() {
     { href: "/betting", label: "All Bets", icon: <Gem className="h-4 w-4" /> },
     { href: "/generate-bets", label: "AI Bet Generator", icon: <Sparkles className="h-4 w-4" /> },
     { href: "/leaderboard", label: "Leaderboard", icon: <Trophy className="h-4 w-4" /> },
-    { href: "/admin", label: "Admin", icon: <Shield className="h-4 w-4" /> },
   ];
+
+  if (userData?.isAdmin) {
+    navLinks.push({ href: "/admin", label: "Admin", icon: <Shield className="h-4 w-4" /> });
+  }
 
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -109,7 +112,7 @@ export default function Header() {
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">{userData.nickname}</p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        Guest Player
+                        {userData.isAdmin ? "Administrator" : "Guest Player"}
                       </p>
                     </div>
                   </DropdownMenuLabel>

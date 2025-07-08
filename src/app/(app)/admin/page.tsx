@@ -56,7 +56,7 @@ const betFormSchema = z.object({
 
 export default function AdminPage() {
     const { bets, addBet, settleBet, purgeAndReseedDatabase } = useBets();
-    const { logout } = useUser();
+    const { logout, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
@@ -129,6 +129,35 @@ export default function AdminPage() {
             setIsPurging(false);
         }
     };
+
+    if (userLoading) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
+    }
+
+    if (!userData?.isAdmin) {
+        return (
+            <div className="container mx-auto py-16 px-4">
+                <Card className="max-w-md mx-auto">
+                    <CardHeader className="text-center">
+                        <CardTitle className="text-2xl text-destructive flex items-center justify-center gap-2">
+                            <AlertTriangle />
+                            Access Denied
+                        </CardTitle>
+                        <CardDescription>You must be an administrator to access this page.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground text-center">
+                            Please log in with an administrator account to continue.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     const activeBets = bets.filter(b => b.status === 'open');
 
