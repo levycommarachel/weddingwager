@@ -1,5 +1,5 @@
 import BetCard, { type Bet } from "@/components/bet-card";
-import { CakeSlice, Clock, Mic, Rings } from "lucide-react";
+import { CakeSlice, Clock, Mic, Users } from "lucide-react";
 
 // Mock data representing active bets
 const mockBets: Bet[] = [
@@ -33,7 +33,7 @@ const mockBets: Bet[] = [
     type: 'range', 
     range: [0, 50], 
     pool: 18750,
-    icon: Rings
+    icon: Users
   },
 ];
 
