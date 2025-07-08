@@ -29,12 +29,6 @@ const BetContext = createContext<BetContextType | undefined>(undefined);
 async function seedInitialBets(db: Firestore) {
   const betsCollection = collection(db, 'bets');
   try {
-    const existingBets = await getDocs(query(betsCollection));
-    if (!existingBets.empty) {
-      console.log("Bets collection is not empty, skipping seed.");
-      throw new Error("Bets collection is not empty. Cannot seed.");
-    }
-
     console.log("Seeding initial bets...");
     const batch = writeBatch(db);
     
