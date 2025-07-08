@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useRe
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, firebaseEnabled } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs } from 'firebase/firestore';
-import type { Bet } from '@/types';
+import type { Bet, Wager } from '@/types';
 import { useUser } from './UserContext';
 
 
@@ -182,31 +182,72 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       showFirebaseDisabledToast();
       return;
     }
-     try {
-        const betRef = doc(db, "bets", betId);
-        await runTransaction(db, async (transaction) => {
-            const betDoc = await transaction.get(betRef);
-            if (!betDoc.exists() || betDoc.data().status !== 'open') {
-                throw new Error("Bet is not open or does not exist.");
-            }
-            transaction.update(betRef, {
-                status: "resolved",
-                winningOutcome: winningOutcome,
-                resolvedAt: serverTimestamp(),
-            });
+    
+    try {
+      // Step 1: Query for all wagers on this bet outside the transaction.
+      const wagersQuery = query(collection(db, "wagers"), where("betId", "==", betId));
+      const wagersSnapshot = await getDocs(wagersQuery);
+      const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
+      
+      // Step 2: Identify winning wagers and calculate total amount wagered by winners.
+      const winningWagers = wagers.filter(wager => wager.outcome == winningOutcome);
+      const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
 
-            // Payout logic would go here, ideally in a Cloud Function for security.
-            // This example will not distribute winnings.
-        });
+      // Step 3: Run the transaction to update all documents atomically.
+      const betRef = doc(db, "bets", betId);
+      await runTransaction(db, async (transaction) => {
+        // Read the bet document inside the transaction.
+        const betDoc = await transaction.get(betRef);
+        if (!betDoc.exists() || betDoc.data().status !== 'open') {
+          throw new Error("Bet is not open or does not exist.");
+        }
+        const betPool = betDoc.data().pool;
+
+        // Payout logic
+        if (winningWagers.length > 0 && totalWinningWagerAmount > 0) {
+          const payoutRatio = betPool / totalWinningWagerAmount;
+          
+          // To update winner balances, we must read their documents inside the transaction first.
+          const winnerRefs = winningWagers.map(wager => doc(db, "users", wager.userId));
+          const winnerDocs = await Promise.all(winnerRefs.map(ref => transaction.get(ref)));
+
+          // Now, perform the writes for each winner.
+          winnerDocs.forEach((userDoc, index) => {
+            if (userDoc.exists()) {
+              const wager = winningWagers[index];
+              const userRef = userDoc.ref;
+              const currentBalance = userDoc.data().balance;
+              const payout = Math.floor(wager.amount * payoutRatio);
+              const newBalance = currentBalance + payout;
+              transaction.update(userRef, { balance: newBalance });
+            }
+          });
+        }
         
-        toast({
-            title: "Bet Settled",
-            description: "The bet has been resolved. Winnings are not distributed in this demo.",
+        // Mark the bet as resolved.
+        transaction.update(betRef, {
+          status: "resolved",
+          winningOutcome: winningOutcome,
+          resolvedAt: serverTimestamp(),
         });
+      });
+      
+      if (winningWagers.length > 0) {
+        toast({
+          title: "Bet Settled!",
+          description: `Payouts distributed to ${winningWagers.length} winner(s).`,
+        });
+      } else {
+        toast({
+          title: "Bet Settled!",
+          description: "There were no winners. The pool remains.",
+        });
+      }
 
     } catch (error) {
-        console.error("Error settling bet: ", error);
-        toast({ variant: 'destructive', title: 'Error', description: `Could not settle bet. ${error}` });
+      console.error("Error settling bet: ", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      toast({ variant: 'destructive', title: 'Error Settling Bet', description: errorMessage });
     }
   };
 
