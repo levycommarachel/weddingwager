@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -20,7 +19,6 @@ interface BetContextType {
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
-  purgeAndReseedDatabase: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -39,17 +37,6 @@ async function seedInitialBets(db: Firestore) {
     
     const bet1Ref = doc(betsCollection);
     batch.set(bet1Ref, {
-      question: "How long will the ceremony be (in minutes)?",
-      type: 'range',
-      range: [20, 45],
-      icon: 'Clock',
-      pool: 0,
-      status: 'open',
-      createdAt: serverTimestamp(),
-    });
-
-    const bet2Ref = doc(betsCollection);
-    batch.set(bet2Ref, {
       question: "Will Michelle wear a veil?",
       type: 'options',
       options: ['Yes', 'No'],
@@ -59,9 +46,20 @@ async function seedInitialBets(db: Firestore) {
       createdAt: serverTimestamp(),
     });
 
+    const bet2Ref = doc(betsCollection);
+    batch.set(bet2Ref, {
+      question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)",
+      type: 'options',
+      options: ['Yes', 'No'],
+      icon: 'Clock',
+      pool: 0,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+
     const bet3Ref = doc(betsCollection);
     batch.set(bet3Ref, {
-      question: "Will Adam cry during the vows?",
+      question: "Will Adam cry during the ceremony?",
       type: 'options',
       options: ['Yes', 'No'],
       icon: 'Mic',
@@ -262,33 +260,9 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const purgeAndReseedDatabase = async () => {
-    if (!firebaseEnabled || !db || !user) {
-      throw new Error("Firebase not configured or user not logged in");
-    }
-    const adminUid = user.uid;
-  
-    const collectionsToDelete = ['wagers', 'bets', 'users'];
-    for (const collectionName of collectionsToDelete) {
-      const batch = writeBatch(db);
-      const snapshot = await getDocs(collection(db, collectionName));
-      snapshot.docs.forEach((doc) => {
-        if (collectionName === 'users' && doc.id === adminUid) {
-          return; // Skip deleting the admin's own user document
-        }
-        batch.delete(doc.ref);
-      });
-      await batch.commit(); // Commit one batch per collection
-    }
-  
-    // Resetting the hasSeeded flag so initial bets are re-seeded
-    hasSeeded.current = false;
-    await seedInitialBets(db);
-  };
-
 
   return (
-    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, purgeAndReseedDatabase }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet }}>
       {children}
     </BetContext.Provider>
   );

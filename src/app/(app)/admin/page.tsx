@@ -6,8 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useBets, type Bet } from '@/context/BetContext';
 import { useUser } from '@/context/UserContext';
-import { useToast } from '@/hooks/use-toast';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,14 +54,11 @@ const betFormSchema = z.object({
 
 
 export default function AdminPage() {
-    const { bets, addBet, settleBet, purgeAndReseedDatabase } = useBets();
-    const { logout, userData, loading: userLoading } = useUser();
-    const { toast } = useToast();
+    const { bets, addBet, settleBet } = useBets();
+    const { userData, loading: userLoading } = useUser();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
-    const [isPurging, setIsPurging] = useState(false);
-    const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
     
     const form = useForm<z.infer<typeof betFormSchema>>({
         resolver: zodResolver(betFormSchema),
@@ -108,27 +104,6 @@ export default function AdminPage() {
             setWinningOutcome('');
         }
     }
-
-    const handlePurge = async () => {
-        setPurgeConfirmOpen(false);
-        setIsPurging(true);
-        try {
-            await purgeAndReseedDatabase();
-            toast({
-                title: 'Database Purged!',
-                description: 'The database has been reset. Logging you out.',
-            });
-            await logout();
-        } catch (error) {
-            console.error("Failed to purge database:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Purge Failed',
-                description: 'Something went wrong while resetting the database. Check the console for details.',
-            });
-            setIsPurging(false);
-        }
-    };
 
     if (userLoading) {
         return (
@@ -286,26 +261,6 @@ export default function AdminPage() {
                             </CardContent>
                         </Card>
                     </div>
-
-                    <div className="lg:col-span-3 mt-8">
-                        <Card className="border-destructive">
-                            <CardHeader>
-                                <CardTitle className="text-destructive flex items-center gap-2">
-                                    <AlertTriangle />
-                                    Danger Zone
-                                </CardTitle>
-                                <CardDescription>
-                                    This action is irreversible and will log you out.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Button variant="destructive" onClick={() => setPurgeConfirmOpen(true)} disabled={isPurging}>
-                                    {isPurging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Purge & Reseed Database
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
                 </div>
             </div>
             
@@ -347,21 +302,6 @@ export default function AdminPage() {
                     <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setBetToSettle(null)}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleSettleBet}>Settle Bet</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
-                 <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all bets, wagers, and user data from the database. You will be logged out.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handlePurge} className={buttonVariants({ variant: "destructive" })}>Confirm Purge</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
