@@ -30,22 +30,86 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
 
   useEffect(() => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
       setLoading(false);
-      // You can set mock bets here for UI development without a backend
-      // setBets([...mockData]); 
       return;
     }
-    const unsubscribe = onSnapshot(collection(db!, "bets"), (snapshot) => {
-      const betsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Bet));
-      setBets(betsData);
-      setLoading(false);
+
+    const initializeBets = async () => {
+      const betsCollection = collection(db, 'bets');
+      
+      try {
+        const existingBets = await getDocs(betsCollection);
+        if (existingBets.empty) {
+          console.log("Seeding initial bets...");
+          const batch = writeBatch(db);
+          
+          const bet1Ref = doc(betsCollection);
+          batch.set(bet1Ref, {
+            question: "How long will the ceremony be (in minutes)?",
+            type: 'range',
+            range: [20, 45],
+            icon: 'Clock',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          });
+
+          const bet2Ref = doc(betsCollection);
+          batch.set(bet2Ref, {
+            question: "Will Michelle wear a veil?",
+            type: 'options',
+            options: ['Yes', 'No'],
+            icon: 'Users',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          });
+
+          const bet3Ref = doc(betsCollection);
+          batch.set(bet3Ref, {
+            question: "Will Adam cry during the vows?",
+            type: 'options',
+            options: ['Yes', 'No'],
+            icon: 'Mic',
+            pool: 0,
+            status: 'open',
+            createdAt: serverTimestamp(),
+          });
+
+          await batch.commit();
+        }
+      } catch (error) {
+        console.error("Error seeding bets: ", error);
+        toast({ variant: 'destructive', title: 'Error Seeding Data', description: 'Could not add initial bets.' });
+      }
+
+      const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
+        const betsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Bet));
+        setBets(betsData);
+        setLoading(false);
+      }, (error) => {
+        console.error("Bet listener error:", error);
+        setLoading(false);
+        toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to bets data.' });
+      });
+
+      return unsubscribe;
+    };
+
+    let unsubscribe: (() => void) | undefined;
+    initializeBets().then(unsub => {
+      unsubscribe = unsub;
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
   const showFirebaseDisabledToast = () => {
