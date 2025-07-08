@@ -19,12 +19,12 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import React from "react";
 
 export default function Header() {
-  const { nickname, balance, setNickname } = useUser();
+  const { userData, logout } = useUser();
   const pathname = usePathname();
   const router = useRouter();
 
   const handleLogout = () => {
-    setNickname('');
+    logout();
     router.push('/');
   }
 
@@ -89,25 +89,25 @@ export default function Header() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end gap-4">
-          {nickname ? (
+          {userData ? (
              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground shadow-inner">
                   <Coins className="h-4 w-4 text-primary" />
                   <span style={{ color: "hsl(var(--primary-foreground))" }}>
-                    {balance.toLocaleString()}
+                    {userData.balance.toLocaleString()}
                   </span>
                 </div>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar>{nickname.charAt(0).toUpperCase()}</Avatar>
+                    <Avatar>{userData.nickname.charAt(0).toUpperCase()}</Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{nickname}</p>
+                      <p className="text-sm font-medium leading-none">{userData.nickname}</p>
                       <p className="text-xs leading-none text-muted-foreground">
                         Guest Player
                       </p>

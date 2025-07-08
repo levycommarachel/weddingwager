@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useUser } from "@/context/UserContext";
 import { useBets, type Bet } from "@/context/BetContext";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2 } from "lucide-react";
 
 interface BetCardProps {
   bet: Bet;
@@ -30,15 +30,20 @@ const iconMap: { [key: string]: React.ElementType } = {
 };
 
 export default function BetCard({ bet }: BetCardProps) {
-  const { balance, setBalance } = useUser();
-  const { updateBetPool } = useBets();
+  const { userData } = useUser();
+  const { placeBet } = useBets();
   const { toast } = useToast();
+  
   const [betAmount, setBetAmount] = useState<number | string>(100);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [betValue, setBetValue] = useState(
     bet.type === 'range' && bet.range ? bet.range[0] : (bet.options ? bet.options[0] : '')
   );
 
-  const handlePlaceBet = () => {
+  const handlePlaceBet = async () => {
+    if (!userData) return;
+    setIsSubmitting(true);
+    
     const numericBetAmount = Number(betAmount);
     if (isNaN(numericBetAmount) || numericBetAmount <= 0) {
       toast({
@@ -46,24 +51,35 @@ export default function BetCard({ bet }: BetCardProps) {
         title: "Invalid Bet Amount",
         description: "Please enter a positive number for your bet.",
       });
+      setIsSubmitting(false);
       return;
     }
-    if (numericBetAmount > balance) {
+    if (numericBetAmount > userData.balance) {
       toast({
         variant: "destructive",
         title: "Insufficient Balance",
         description: "You don't have enough points for this bet.",
       });
+      setIsSubmitting(false);
       return;
     }
 
-    setBalance((prev) => prev - numericBetAmount);
-    updateBetPool(bet.id, numericBetAmount);
-    toast({
-      title: "Bet Placed!",
-      description: `You wagered ${numericBetAmount} points on "${bet.question}". Good luck!`,
-    });
-    // In a real app, this would also update the user's bet history on the backend.
+    try {
+      await placeBet(bet.id, betValue, numericBetAmount);
+      toast({
+        title: "Bet Placed!",
+        description: `You wagered ${numericBetAmount} points on "${bet.question}". Good luck!`,
+      });
+    } catch(error) {
+       toast({
+        variant: "destructive",
+        title: "Bet Failed",
+        description: "There was an error placing your bet. Please try again.",
+      });
+      console.error(error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const Icon = iconMap[bet.icon] || Users;
@@ -125,15 +141,15 @@ export default function BetCard({ bet }: BetCardProps) {
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             min="1"
-            max={balance}
+            max={userData?.balance}
             className="mt-2"
             placeholder="Enter your bet"
           />
         </div>
       </CardContent>
       <CardFooter className="bg-muted/30 p-4">
-        <Button onClick={handlePlaceBet} className="w-full" size="lg">
-          Place Bet
+        <Button onClick={handlePlaceBet} className="w-full" size="lg" disabled={isSubmitting}>
+          {isSubmitting ? <Loader2 className="animate-spin" /> : "Place Bet"}
         </Button>
       </CardFooter>
     </Card>

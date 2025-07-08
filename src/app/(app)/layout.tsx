@@ -5,23 +5,28 @@ import { useRouter } from 'next/navigation';
 import Header from "@/components/header";
 import { useUser } from '@/context/UserContext';
 import { BetProvider } from '@/context/BetContext';
+import { Loader2 } from 'lucide-react';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { nickname } = useUser();
+  const { user, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!nickname) {
+    if (!loading && !user) {
       router.replace('/');
     }
-  }, [nickname, router]);
+  }, [user, loading, router]);
   
-  if (!nickname) {
-    return null; // or a loading spinner
+  if (loading || !user) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
   }
 
   return (

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Gem } from 'lucide-react';
+import { Gem, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useUser } from '@/context/UserContext';
 import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 const loginSchema = z.object({
   nickname: z.string().min(3, { message: 'Nickname must be at least 3 characters long.' }).max(20, { message: 'Nickname must be 20 characters or less.' }),
@@ -19,21 +20,33 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
-  const { setNickname } = useUser();
+  const { login } = useUser();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: { nickname: '' },
   });
 
-  function onSubmit(values: z.infer<typeof loginSchema>) {
-    setNickname(values.nickname);
-    toast({
-      title: `Welcome, ${values.nickname}!`,
-      description: "Let the games begin. Good luck!",
-    });
-    router.push('/betting');
+  async function onSubmit(values: z.infer<typeof loginSchema>) {
+    setIsSubmitting(true);
+    try {
+      await login(values.nickname);
+      toast({
+        title: `Welcome, ${values.nickname}!`,
+        description: "Let the games begin. Good luck!",
+      });
+      router.push('/betting');
+    } catch (error) {
+       toast({
+        variant: 'destructive',
+        title: `Login Failed`,
+        description: "Could not log in. Please try again.",
+      });
+      console.error(error);
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -64,8 +77,8 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                Let's Go!
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : "Let's Go!"}
               </Button>
             </form>
           </Form>

@@ -2,100 +2,130 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { db, auth } from '@/lib/firebase';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs } from 'firebase/firestore';
+import type { Bet } from '@/types';
+import { useUser } from './UserContext';
 
-export type Bet = {
-  id: number;
-  question: string;
-  type: 'range' | 'options';
-  range?: [number, number];
-  options?: string[];
-  pool: number;
-  icon: string;
-  isSettled?: boolean;
+
+// Define the raw bet type from Firestore to handle Timestamps
+type FirestoreBet = Omit<Bet, 'id'> & {
+  id?: string;
 };
-
-const initialBets: Bet[] = [
-  { id: 1, question: "How long will the main ceremony last (in minutes)?", type: 'range', range: [20, 45], pool: 12500, icon: "Clock", isSettled: false },
-  { id: 2, question: "How many tiers will the wedding cake have?", type: 'options', options: ['2 tiers', '3 tiers', '4 tiers', '5+ tiers'], pool: 21300, icon: "CakeSlice", isSettled: false },
-  { id: 3, question: "What will be the length of the best man's speech (in minutes)?", type: 'range', range: [3, 10], pool: 5400, icon: "Mic", isSettled: false },
-  { id: 4, question: "How many guests will be on the dance floor during the first song?", type: 'range', range: [0, 50], pool: 18750, icon: "Users", isSettled: false },
-];
-
 
 interface BetContextType {
   bets: Bet[];
-  addBet: (bet: Omit<Bet, 'id' | 'pool' | 'isSettled'>) => void;
-  updateBetPool: (betId: number, amount: number) => void;
-  settleBet: (betId: number) => void;
+  loading: boolean;
+  addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
+  placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
+  settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
 
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useUser();
 
   useEffect(() => {
-    try {
-      const storedBets = localStorage.getItem('wedding-wager-bets');
-      if (storedBets) {
-        setBets(JSON.parse(storedBets));
-      } else {
-        setBets(initialBets);
-      }
-    } catch (error) {
-      console.warn("Could not read bets from local storage, using initial data.");
-      setBets(initialBets);
-    } finally {
-      setIsInitialized(true);
-    }
+    const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
+      const betsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Bet));
+      setBets(betsData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (isInitialized) {
-      try {
-        localStorage.setItem('wedding-wager-bets', JSON.stringify(bets));
-      } catch (error) {
-        console.warn("Could not write bets to local storage.");
-      }
-    }
-  }, [bets, isInitialized]);
-
-  const addBet = (bet: Omit<Bet, 'id' | 'pool' | 'isSettled'>) => {
-    setBets(prev => {
-        const newBet: Bet = {
-            ...bet,
-            id: prev.length > 0 ? Math.max(...prev.map(b => b.id)) + 1 : 1,
-            pool: 0,
-            isSettled: false,
-        };
-        return [...prev, newBet];
-    });
-    toast({
+  const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
+    try {
+      await addDoc(collection(db, 'bets'), {
+        ...betData,
+        pool: 0,
+        status: 'open',
+        createdAt: serverTimestamp(),
+      });
+      toast({
         title: "New Bet Added!",
-        description: `"${bet.question}" is now open for wagers.`,
+        description: `"${betData.question}" is now open for wagers.`,
+      });
+    } catch (error) {
+      console.error("Error adding bet: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not add new bet.' });
+    }
+  };
+
+  const placeBet = async (betId: string, outcome: string | number, amount: number) => {
+    if (!user) throw new Error("User not authenticated");
+
+    const betRef = doc(db, "bets", betId);
+    const userRef = doc(db, "users", user.uid);
+    const wagerColRef = collection(db, "wagers");
+
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists() || userDoc.data().balance < amount) {
+        throw new Error("Insufficient balance.");
+      }
+      
+      const newBalance = userDoc.data().balance - amount;
+      transaction.update(userRef, { balance: newBalance });
+
+      const betDoc = await transaction.get(betRef);
+      if (!betDoc.exists()) {
+        throw new Error("Bet does not exist!");
+      }
+      const newPool = betDoc.data().pool + amount;
+      transaction.update(betRef, { pool: newPool });
+      
+      transaction.set(doc(wagerColRef), {
+          userId: user.uid,
+          nickname: userDoc.data().nickname,
+          betId: betId,
+          amount: amount,
+          outcome: outcome,
+          createdAt: serverTimestamp()
+      });
     });
   };
 
-  const updateBetPool = (betId: number, amount: number) => {
-    setBets(prev => prev.map(b => b.id === betId ? { ...b, pool: b.pool + amount } : b));
-  };
-  
-  const settleBet = (betId: number) => {
-    setBets(prev => prev.map(b => b.id === betId ? { ...b, isSettled: true } : b));
-    toast({
-        title: "Bet Settled",
-        description: "The bet is now closed. In a real app, winnings would be distributed.",
-    });
+  const settleBet = async (betId: string, winningOutcome: string | number) => {
+     try {
+        const betRef = doc(db, "bets", betId);
+        await runTransaction(db, async (transaction) => {
+            const betDoc = await transaction.get(betRef);
+            if (!betDoc.exists() || betDoc.data().status !== 'open') {
+                throw new Error("Bet is not open or does not exist.");
+            }
+            transaction.update(betRef, {
+                status: "resolved",
+                winningOutcome: winningOutcome,
+                resolvedAt: serverTimestamp(),
+            });
+
+            // Payout logic would go here, ideally in a Cloud Function for security.
+            // This example will not distribute winnings.
+        });
+        
+        toast({
+            title: "Bet Settled",
+            description: "The bet has been resolved. Winnings are not distributed in this demo.",
+        });
+
+    } catch (error) {
+        console.error("Error settling bet: ", error);
+        toast({ variant: 'destructive', title: 'Error', description: `Could not settle bet. ${error}` });
+    }
   };
 
-  if (!isInitialized) {
-    return null; // Or a loading spinner
-  }
 
   return (
-    <BetContext.Provider value={{ bets, addBet, updateBetPool, settleBet }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet }}>
       {children}
     </BetContext.Provider>
   );

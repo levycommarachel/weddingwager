@@ -1,65 +1,79 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signInAnonymously, type User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import type { UserData } from '@/types';
 
 interface UserContextType {
-  nickname: string;
-  setNickname: (name: string) => void;
-  balance: number;
-  setBalance: (balance: number | ((prevBalance: number) => number)) => void;
+  user: FirebaseUser | null;
+  userData: UserData | null;
+  loading: boolean;
+  login: (nickname: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const [nickname, setNicknameState] = useState<string>('');
-  const [balance, setBalance] = useState<number>(1000); // Starting balance
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const storedNickname = localStorage.getItem('wedding-wager-nickname');
-      if (storedNickname) {
-        setNicknameState(storedNickname);
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) {
+        setUserData(null);
+        setLoading(false);
       }
-      const storedBalance = localStorage.getItem('wedding-wager-balance');
-      if (storedBalance) {
-        setBalance(Number(storedBalance));
-      }
-    } catch (error) {
-      console.warn("Could not read from local storage.");
-    } finally {
-      setIsInitialized(true);
-    }
+    });
+
+    return () => unsubscribeAuth();
   }, []);
 
-  const setNickname = (name: string) => {
-    try {
-      localStorage.setItem('wedding-wager-nickname', name);
-    } catch (error) {
-      console.warn("Could not write to local storage.");
+  useEffect(() => {
+    let unsubscribeFirestore: () => void;
+    if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        unsubscribeFirestore = onSnapshot(userRef, (doc) => {
+            if (doc.exists()) {
+                setUserData(doc.data() as UserData);
+            }
+            setLoading(false);
+        });
     }
-    setNicknameState(name);
-  };
-  
-  const setBalanceWithStorage = (newBalance: number | ((prevBalance: number) => number)) => {
-    setBalance(prevBalance => {
-        const updatedBalance = typeof newBalance === 'function' ? newBalance(prevBalance) : newBalance;
-        try {
-            localStorage.setItem('wedding-wager-balance', String(updatedBalance));
-        } catch (error) {
-            console.warn("Could not write to local storage.");
+    return () => {
+        if (unsubscribeFirestore) {
+            unsubscribeFirestore();
         }
-        return updatedBalance;
-    });
-  }
+    };
+  }, [user]);
 
-  if (!isInitialized) {
-    return null; // Or a loading spinner
+  const login = async (nickname: string) => {
+    const userCredential = await signInAnonymously(auth);
+    const userRef = doc(db, 'users', userCredential.user.uid);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
+        nickname,
+        balance: 1000, // Starting balance
+        isAdmin: false,
+        lastActive: serverTimestamp(),
+      });
+    }
+  };
+
+  const logout = async () => {
+      await auth.signOut();
+      setUser(null);
+      setUserData(null);
   }
 
   return (
-    <UserContext.Provider value={{ nickname, setNickname, balance, setBalance: setBalanceWithStorage }}>
+    <UserContext.Provider value={{ user, userData, loading, login, logout }}>
       {children}
     </UserContext.Provider>
   );

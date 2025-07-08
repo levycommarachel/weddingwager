@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -9,30 +10,44 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy } from "lucide-react";
+import { Trophy, Loader2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
+import { db } from "@/lib/firebase";
+import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
+import type { UserData } from "@/types";
 import Image from "next/image";
 
-// In a real application, this data would come from a backend that tracks all users.
-// For this prototype, we'll mock it and include the current user.
-const mockLeaderboardData = [
-  { rank: 1, nickname: "MaidOfHonor", balance: 12500, icon: "https://placehold.co/40x40.png", dataAiHint: "woman smiling" },
-  { rank: 2, nickname: "BestMan4Ever", balance: 11800, icon: "https://placehold.co/40x40.png", dataAiHint: "man laughing" },
-  { rank: 4, nickname: "GroovyAunt", balance: 9200, icon: "https://placehold.co/40x40.png", dataAiHint: "older woman" },
-  { rank: 5, nickname: "DJ Jazzy", balance: 8500, icon: "https://placehold.co/40x40.png", dataAiHint: "person headphones" },
-];
-
+interface LeaderboardUser extends UserData {
+    id: string;
+    rank: number;
+}
 
 export default function LeaderboardPage() {
-    // We'll use the current user's data to make the leaderboard feel more alive.
-    const { nickname: currentUserNickname, balance: currentUserBalance } = useUser();
+    const { user } = useUser();
+    const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    // Combine mock data with current user and sort by balance
-    const combinedData = [
-        ...mockLeaderboardData.filter(u => u.nickname !== currentUserNickname),
-        { rank: 0, nickname: currentUserNickname, balance: currentUserBalance, icon: "https://placehold.co/40x40.png", dataAiHint: "person avatar" },
-    ].sort((a, b) => b.balance - a.balance)
-     .map((user, index) => ({ ...user, rank: index + 1 }));
+    useEffect(() => {
+        const q = query(collection(db, "users"), orderBy("balance", "desc"));
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const users: LeaderboardUser[] = [];
+            querySnapshot.forEach((doc, index) => {
+                users.push({ id: doc.id, ...doc.data() as UserData, rank: index + 1 });
+            });
+            setLeaderboard(users);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
+    }
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -59,12 +74,12 @@ export default function LeaderboardPage() {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {combinedData.map((player) => (
-                <TableRow key={player.nickname} className={player.nickname === currentUserNickname ? "bg-accent" : ""}>
+                {leaderboard.map((player) => (
+                <TableRow key={player.id} className={player.id === user?.uid ? "bg-accent" : ""}>
                     <TableCell className="font-bold text-lg">{player.rank}</TableCell>
                     <TableCell>
                         <div className="flex items-center gap-3">
-                           <Image src={player.icon} alt={player.nickname} width={40} height={40} className="rounded-full" data-ai-hint={player.dataAiHint} />
+                           <Image src={`https://placehold.co/40x40.png`} alt={player.nickname} width={40} height={40} className="rounded-full" data-ai-hint="person avatar" />
                             <span className="font-medium">{player.nickname}</span>
                         </div>
                     </TableCell>
