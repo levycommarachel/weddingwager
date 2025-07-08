@@ -142,25 +142,31 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
     const betRef = doc(db, "bets", betId);
     const userRef = doc(db, "users", user.uid);
-    const wagerColRef = collection(db, "wagers");
+    const wagersCollectionRef = collection(db, "wagers");
 
     await runTransaction(db, async (transaction) => {
+      // 1. Read all documents first to respect Firestore transaction rules
       const userDoc = await transaction.get(userRef);
+      const betDoc = await transaction.get(betRef);
+      
+      // 2. Perform validation checks
+      if (!betDoc.exists()) {
+        throw new Error("Bet does not exist!");
+      }
       if (!userDoc.exists() || userDoc.data().balance < amount) {
         throw new Error("Insufficient balance.");
       }
       
+      // 3. Prepare and perform all write operations
       const newBalance = userDoc.data().balance - amount;
       transaction.update(userRef, { balance: newBalance });
-
-      const betDoc = await transaction.get(betRef);
-      if (!betDoc.exists()) {
-        throw new Error("Bet does not exist!");
-      }
+      
       const newPool = betDoc.data().pool + amount;
       transaction.update(betRef, { pool: newPool });
       
-      transaction.set(doc(wagerColRef), {
+      // Create a reference for the new wager document
+      const newWagerRef = doc(wagersCollectionRef);
+      transaction.set(newWagerRef, {
           userId: user.uid,
           nickname: userDoc.data().nickname,
           betId: betId,
