@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useRouter } from 'next/navigation';
@@ -31,12 +32,12 @@ export default function LoginPage() {
     defaultValues: { nickname: '' },
   });
   
-  // Redirect if user is already logged in
+  // Redirect if user is already logged in, but not while a new login is being submitted.
   useEffect(() => {
-    if (!userLoading && user) {
+    if (!userLoading && user && !isSubmitting) {
       router.replace('/betting');
     }
-  }, [user, userLoading, router]);
+  }, [user, userLoading, isSubmitting, router]);
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsSubmitting(true);
@@ -79,8 +80,8 @@ export default function LoginPage() {
     }
   }
 
-  // Show a loader while checking auth state
-  if (userLoading || user) {
+  // Show a loader while checking auth state or if user is already logged in
+  if (userLoading || (user && !isSubmitting)) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
