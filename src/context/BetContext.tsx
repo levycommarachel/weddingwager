@@ -86,12 +86,21 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    const q = query(collection(db, "bets"), orderBy("createdAt", "desc"));
+    // Remove orderBy from query to prevent index-related permission errors
+    const q = query(collection(db, "bets"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
         } as Bet));
+
+        // Sort on the client-side instead
+        betsData.sort((a, b) => {
+            const timeA = a.createdAt?.toMillis() || 0;
+            const timeB = b.createdAt?.toMillis() || 0;
+            return timeB - timeA;
+        });
+
         setBets(betsData);
         setLoading(false);
     }, (error) => {
