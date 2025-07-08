@@ -57,7 +57,7 @@ export default function LoginPage() {
           batch.set(doc(betsCollectionRef), bet1Data);
       
           const bet2Data = {
-            question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)",
+            question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)?",
             type: 'options',
             options: ['Yes', 'No'],
             icon: 'Clock',
@@ -111,7 +111,8 @@ export default function LoginPage() {
             });
         }
       console.error(error);
-      setIsSubmitting(false);
+    } finally {
+        setIsSubmitting(false);
     }
   }
 
