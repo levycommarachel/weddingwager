@@ -1,6 +1,8 @@
+
 import type { Metadata } from 'next';
 import './globals.css';
 import { UserProvider } from '@/context/UserContext';
+import { BetProvider } from '@/context/BetContext';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
@@ -23,8 +25,10 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <UserProvider>
-          {children}
-          <Toaster />
+          <BetProvider>
+            {children}
+            <Toaster />
+          </BetProvider>
         </UserProvider>
       </body>
     </html>
