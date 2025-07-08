@@ -1,5 +1,4 @@
 import BetCard, { type Bet } from "@/components/bet-card";
-import { CakeSlice, Clock, Mic, Users } from "lucide-react";
 
 // Mock data representing active bets
 const mockBets: Bet[] = [
@@ -9,7 +8,7 @@ const mockBets: Bet[] = [
     type: 'range', 
     range: [20, 45], 
     pool: 12500,
-    icon: Clock
+    icon: "Clock"
   },
   { 
     id: 2, 
@@ -17,7 +16,7 @@ const mockBets: Bet[] = [
     type: 'options', 
     options: ['2 tiers', '3 tiers', '4 tiers', '5+ tiers'], 
     pool: 21300,
-    icon: CakeSlice
+    icon: "CakeSlice"
   },
   { 
     id: 3, 
@@ -25,7 +24,7 @@ const mockBets: Bet[] = [
     type: 'range', 
     range: [3, 10], 
     pool: 5400,
-    icon: Mic
+    icon: "Mic"
   },
     { 
     id: 4, 
@@ -33,7 +32,7 @@ const mockBets: Bet[] = [
     type: 'range', 
     range: [0, 50], 
     pool: 18750,
-    icon: Users
+    icon: "Users"
   },
 ];
 

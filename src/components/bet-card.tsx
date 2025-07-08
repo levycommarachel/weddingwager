@@ -16,7 +16,7 @@ import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useUser } from "@/context/UserContext";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type Bet = {
@@ -26,12 +26,19 @@ export type Bet = {
   range?: [number, number];
   options?: string[];
   pool: number;
-  icon: React.ElementType;
+  icon: string;
 };
 
 interface BetCardProps {
   bet: Bet;
 }
+
+const iconMap: { [key: string]: React.ElementType } = {
+  Clock,
+  CakeSlice,
+  Mic,
+  Users,
+};
 
 export default function BetCard({ bet }: BetCardProps) {
   const { balance, setBalance } = useUser();
@@ -69,7 +76,7 @@ export default function BetCard({ bet }: BetCardProps) {
     // In a real app, this would also update the bet pool and user's bet history on the backend.
   };
 
-  const Icon = bet.icon;
+  const Icon = iconMap[bet.icon] || Users;
 
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
