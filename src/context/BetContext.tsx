@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, orderBy, type Firestore } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment } from 'firebase/firestore';
 import type { Bet, Wager } from '@/types';
 import { useUser } from './UserContext';
 
@@ -20,6 +20,7 @@ interface BetContextType {
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
+  seedInitialBets: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -28,7 +29,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, userData } = useUser();
   
   useEffect(() => {
     if (!firebaseEnabled || !db) {
@@ -64,6 +65,45 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const showFirebaseDisabledToast = () => {
     toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
   }
+
+  const seedInitialBets = async () => {
+    if (!firebaseEnabled || !db) {
+      showFirebaseDisabledToast();
+      return;
+    }
+    try {
+      const batch = writeBatch(db);
+      const betsCollectionRef = collection(db, 'bets');
+      
+      const bet1Data = {
+        question: "Will Michelle wear a veil?",
+        type: 'options', options: ['Yes', 'No'], icon: 'Users',
+        pool: 0, status: 'open', createdAt: serverTimestamp(),
+      };
+      batch.set(doc(betsCollectionRef), bet1Data);
+
+      const bet2Data = {
+        question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)",
+        type: 'options', options: ['Yes', 'No'], icon: 'Clock',
+        pool: 0, status: 'open', createdAt: serverTimestamp(),
+      };
+      batch.set(doc(betsCollectionRef), bet2Data);
+
+      const bet3Data = {
+        question: "Will Adam cry during the ceremony?",
+        type: 'options', options: ['Yes', 'No'], icon: 'Mic',
+        pool: 0, status: 'open', createdAt: serverTimestamp(),
+      };
+      batch.set(doc(betsCollectionRef), bet3Data);
+
+      await batch.commit();
+      toast({ title: 'Success!', description: 'Initial bets have been seeded.' });
+    } catch (error) {
+      console.error("Error seeding bets: ", error);
+      toast({ variant: 'destructive', title: 'Seeding Failed', description: 'Could not add initial bets. Check permissions.' });
+    }
+  };
+
 
   const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
     if (!firebaseEnabled || !db) {
@@ -138,46 +178,49 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
+      // Step 1: Query wagers and bet data first
+      const betRef = doc(db, "bets", betId);
       const wagersQuery = query(collection(db, "wagers"), where("betId", "==", betId));
-      const wagersSnapshot = await getDocs(wagersQuery);
+
+      const [betDoc, wagersSnapshot] = await Promise.all([
+          getDoc(betRef),
+          getDocs(wagersQuery)
+      ]);
+
+      if (!betDoc.exists() || betDoc.data().status !== 'open') {
+        throw new Error("Bet is not open or does not exist.");
+      }
+
+      const betPool = betDoc.data().pool;
       const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
       
       const winningWagers = wagers.filter(wager => wager.outcome == winningOutcome);
       const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
 
-      const betRef = doc(db, "bets", betId);
-      await runTransaction(db, async (transaction) => {
-        const betDoc = await transaction.get(betRef);
-        if (!betDoc.exists() || betDoc.data().status !== 'open') {
-          throw new Error("Bet is not open or does not exist.");
-        }
-        const betPool = betDoc.data().pool;
+      // Step 2: Create a batch write to update everything atomically
+      const batch = writeBatch(db);
 
-        if (winningWagers.length > 0 && totalWinningWagerAmount > 0) {
-          const payoutRatio = betPool / totalWinningWagerAmount;
-          
-          const winnerRefs = winningWagers.map(wager => doc(db, "users", wager.userId));
-          const winnerDocs = await Promise.all(winnerRefs.map(ref => transaction.get(ref)));
-
-          winnerDocs.forEach((userDoc, index) => {
-            if (userDoc.exists()) {
-              const wager = winningWagers[index];
-              const userRef = userDoc.ref;
-              const currentBalance = userDoc.data().balance;
-              const payout = Math.floor(wager.amount * payoutRatio);
-              const newBalance = currentBalance + payout;
-              transaction.update(userRef, { balance: newBalance });
-            }
-          });
-        }
-        
-        transaction.update(betRef, {
-          status: "resolved",
-          winningOutcome: winningOutcome,
-          resolvedAt: serverTimestamp(),
-        });
+      // Update the bet to be resolved
+      batch.update(betRef, {
+        status: "resolved",
+        winningOutcome: winningOutcome,
+        resolvedAt: serverTimestamp(),
       });
-      
+
+      // Update balances for winners using the increment operator
+      if (winningWagers.length > 0 && totalWinningWagerAmount > 0) {
+        const payoutRatio = betPool / totalWinningWagerAmount;
+        
+        for (const wager of winningWagers) {
+          const userRef = doc(db, "users", wager.userId);
+          const payout = Math.floor(wager.amount * payoutRatio);
+          batch.update(userRef, { balance: increment(payout) });
+        }
+      }
+
+      // Step 3: Commit the batch
+      await batch.commit();
+
       if (winningWagers.length > 0) {
         toast({
           title: "Bet Settled!",
@@ -198,7 +241,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, seedInitialBets }}>
       {children}
     </BetContext.Provider>
   );
