@@ -25,6 +25,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useToast } from '@/hooks/use-toast';
 
 const betFormSchema = z.object({
   question: z.string().min(10, 'Question must be at least 10 characters.'),
@@ -35,28 +36,41 @@ const betFormSchema = z.object({
     end: z.coerce.number(),
   }).optional(),
   options: z.array(z.object({ value: z.string().min(1, 'Option cannot be empty.') })).optional(),
-}).refine(data => {
+}).superRefine((data, ctx) => {
     if (data.type === 'range') {
-        return data.range && data.range.start < data.range.end;
+        if (!data.range) {
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['range'],
+                message: 'Range is required for this bet type.',
+            });
+            return;
+        }
+        if (data.range.start >= data.range.end) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['range', 'end'],
+                message: 'Start must be less than end.',
+            });
+        }
     }
-    return true;
-}, {
-    message: "Range start must be less than range end.",
-    path: ["range"],
-}).refine(data => {
+
     if (data.type === 'options') {
-        return data.options && data.options.length >= 2;
+        if (!data.options || data.options.length < 2) {
+             ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['options'],
+                message: 'At least two options are required.',
+            });
+        }
     }
-    return true;
-}, {
-    message: "You must provide at least two options.",
-    path: ["options"],
 });
 
 
 export default function AdminPage() {
     const { bets, addBet, settleBet } = useBets();
     const { userData, loading: userLoading } = useUser();
+    const { toast } = useToast();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
@@ -82,21 +96,31 @@ export default function AdminPage() {
 
     async function onSubmit(values: z.infer<typeof betFormSchema>) {
         setIsSubmitting(true);
-        const newBetData: any = {
-            question: values.question,
-            icon: values.icon,
-            type: values.type,
-        };
+        try {
+            const newBetData: any = {
+                question: values.question,
+                icon: values.icon,
+                type: values.type,
+            };
 
-        if (values.type === 'range' && values.range) {
-            newBetData.range = [values.range.start, values.range.end];
-        } else if (values.type === 'options' && values.options) {
-            newBetData.options = values.options.map(o => o.value);
+            if (values.type === 'range' && values.range) {
+                newBetData.range = [values.range.start, values.range.end];
+            } else if (values.type === 'options' && values.options) {
+                newBetData.options = values.options.map(o => o.value);
+            }
+            
+            await addBet(newBetData);
+            form.reset();
+        } catch (error) {
+            console.error("Failed to add bet:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Submission Failed',
+                description: 'Could not create the bet. Please try again.',
+            });
+        } finally {
+            setIsSubmitting(false);
         }
-        
-        await addBet(newBetData);
-        form.reset();
-        setIsSubmitting(false);
     }
     
     const handleSettleBet = async () => {
@@ -205,11 +229,6 @@ export default function AdminPage() {
                                                         </FormItem>
                                                     )} />
                                                 </div>
-                                                {form.formState.errors.range?.message && (
-                                                    <p className="text-sm font-medium text-destructive">
-                                                        {form.formState.errors.range.message}
-                                                    </p>
-                                                )}
                                             </div>
                                         )}
 
@@ -240,8 +259,7 @@ export default function AdminPage() {
                                             </div>
                                         )}
                                         <Button type="submit" className="w-full" disabled={isSubmitting}>
-                                            {isSubmitting && <Loader2 className="animate-spin" />}
-                                            Create Bet
+                                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Create Bet"}
                                         </Button>
                                     </form>
                                 </Form>
