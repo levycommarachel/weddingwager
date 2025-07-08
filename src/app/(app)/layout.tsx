@@ -12,16 +12,18 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useUser();
+  const { user, userData, loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
+    // Redirect to login if not loading and there's no user or user data.
+    if (!loading && (!user || !userData)) {
       router.replace('/');
     }
-  }, [user, loading, router]);
+  }, [user, userData, loading, router]);
   
-  if (loading || !user) {
+  // Show loader until user and userData are fully loaded.
+  if (loading || !user || !userData) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />

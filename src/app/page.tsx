@@ -22,7 +22,7 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, login, loading: userLoading } = useUser();
+  const { user, userData, login, loading: userLoading } = useUser();
   const { seedInitialBets } = useBets();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,26 +32,24 @@ export default function LoginPage() {
     defaultValues: { nickname: '' },
   });
   
-  // Redirect if user is already logged in, but not while a new login is being submitted.
+  // Redirect if user and their data are fully loaded, but not while a new login is being submitted.
   useEffect(() => {
-    if (!userLoading && user && !isSubmitting) {
+    if (!userLoading && user && userData && !isSubmitting) {
       router.replace('/betting');
     }
-  }, [user, userLoading, isSubmitting, router]);
+  }, [user, userData, userLoading, isSubmitting, router]);
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsSubmitting(true);
     try {
       await login(values.nickname);
-
-      // Attempt to seed initial bets. The function itself will now check if it's necessary.
       await seedInitialBets();
 
       toast({
         title: `Welcome, ${values.nickname}!`,
         description: "Let the games begin. Good luck!",
       });
-      router.push('/betting');
+      // The useEffect will handle the redirect once userData is loaded.
     } catch (error: any) {
        if (error?.code === 'auth/configuration-not-found') {
             toast({
@@ -75,13 +73,13 @@ export default function LoginPage() {
             });
         }
       console.error(error);
-    } finally {
-        setIsSubmitting(false);
-    }
+      setIsSubmitting(false); // Ensure submitting is reset on error
+    } 
+    // No finally block needed for setIsSubmitting, as the redirect will happen on state change.
   }
 
   // Show a loader while checking auth state or if user is already logged in
-  if (userLoading || (user && !isSubmitting)) {
+  if (userLoading || (user && userData && !isSubmitting)) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
