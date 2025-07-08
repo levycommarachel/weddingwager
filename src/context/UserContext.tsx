@@ -1,10 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, firebaseEnabled } from '@/lib/firebase';
 import { onAuthStateChanged, signInAnonymously, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import type { UserData } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserContextType {
   user: FirebaseUser | null;
@@ -20,9 +21,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    if (!firebaseEnabled) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribeAuth = onAuthStateChanged(auth!, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
         setUserData(null);
@@ -35,14 +42,16 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let unsubscribeFirestore: () => void;
-    if (user) {
-        const userRef = doc(db, 'users', user.uid);
+    if (user && firebaseEnabled) {
+        const userRef = doc(db!, 'users', user.uid);
         unsubscribeFirestore = onSnapshot(userRef, (doc) => {
             if (doc.exists()) {
                 setUserData(doc.data() as UserData);
             }
             setLoading(false);
         });
+    } else {
+        setLoading(false);
     }
     return () => {
         if (unsubscribeFirestore) {
@@ -52,6 +61,15 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const login = async (nickname: string) => {
+    if (!firebaseEnabled || !auth || !db) {
+      toast({
+        variant: 'destructive',
+        title: 'Offline Mode',
+        description: "Firebase is not configured. Cannot log in.",
+      });
+      throw new Error("Firebase not configured");
+    }
+
     const userCredential = await signInAnonymously(auth);
     const userRef = doc(db, 'users', userCredential.user.uid);
     const userDoc = await getDoc(userRef);
@@ -67,6 +85,11 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+      if (!firebaseEnabled || !auth) {
+        setUser(null);
+        setUserData(null);
+        return;
+      }
       await auth.signOut();
       setUser(null);
       setUserData(null);

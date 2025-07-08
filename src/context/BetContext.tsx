@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, firebaseEnabled } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs } from 'firebase/firestore';
 import type { Bet } from '@/types';
 import { useUser } from './UserContext';
@@ -30,7 +30,13 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
+    if (!firebaseEnabled) {
+      setLoading(false);
+      // You can set mock bets here for UI development without a backend
+      // setBets([...mockData]); 
+      return;
+    }
+    const unsubscribe = onSnapshot(collection(db!, "bets"), (snapshot) => {
       const betsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -42,7 +48,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
+  const showFirebaseDisabledToast = () => {
+    toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
+  }
+
   const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
+    if (!firebaseEnabled || !db) {
+      showFirebaseDisabledToast();
+      return;
+    }
     try {
       await addDoc(collection(db, 'bets'), {
         ...betData,
@@ -61,7 +75,11 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const placeBet = async (betId: string, outcome: string | number, amount: number) => {
-    if (!user) throw new Error("User not authenticated");
+    if (!firebaseEnabled || !db || !user) {
+      showFirebaseDisabledToast();
+      if (!user) throw new Error("User not authenticated");
+      return;
+    }
 
     const betRef = doc(db, "bets", betId);
     const userRef = doc(db, "users", user.uid);
@@ -95,6 +113,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const settleBet = async (betId: string, winningOutcome: string | number) => {
+    if (!firebaseEnabled || !db) {
+      showFirebaseDisabledToast();
+      return;
+    }
      try {
         const betRef = doc(db, "bets", betId);
         await runTransaction(db, async (transaction) => {
