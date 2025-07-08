@@ -13,7 +13,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trophy, Loader2 } from "lucide-react";
 import { useUser } from "@/context/UserContext";
-import { db } from "@/lib/firebase";
+import { db, firebaseEnabled } from "@/lib/firebase";
 import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
 import type { UserData } from "@/types";
 import Image from "next/image";
@@ -29,13 +29,35 @@ export default function LeaderboardPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        if (!firebaseEnabled || !db) {
+            setLoading(false);
+            return;
+        }
+
         const q = query(collection(db, "users"), orderBy("balance", "desc"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const users: LeaderboardUser[] = [];
-            querySnapshot.forEach((doc, index) => {
-                users.push({ id: doc.id, ...doc.data() as UserData, rank: index + 1 });
+            const usersData = querySnapshot.docs.map(doc => {
+                const data = doc.data() as UserData;
+                // Ensure balance is a number, defaulting to 0 if not.
+                data.balance = typeof data.balance === 'number' ? data.balance : 0;
+                return { id: doc.id, ...data };
             });
-            setLeaderboard(users);
+
+            const rankedUsers: LeaderboardUser[] = [];
+            let rank = 0;
+            let lastBalance = Infinity;
+            usersData.forEach((user, index) => {
+                if (user.balance < lastBalance) {
+                    rank = index + 1;
+                }
+                rankedUsers.push({ ...user, rank: rank });
+                lastBalance = user.balance;
+            });
+            
+            setLeaderboard(rankedUsers);
+            setLoading(false);
+        }, (error) => {
+            console.error("Leaderboard data listener error:", error);
             setLoading(false);
         });
 
@@ -47,7 +69,7 @@ export default function LeaderboardPage() {
             <div className="flex justify-center items-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-        )
+        );
     }
 
   return (
@@ -64,7 +86,7 @@ export default function LeaderboardPage() {
                 Top Players
             </CardTitle>
             <CardDescription>Current standings based on total points.</CardDescription>
-        </CardHeader>
+        </Header>
         <CardContent>
             <Table>
             <TableHeader>
