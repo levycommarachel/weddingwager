@@ -1,9 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore } from 'firebase/firestore';
 import type { Bet, Wager } from '@/types';
 import { useUser } from './UserContext';
 
@@ -19,16 +19,62 @@ interface BetContextType {
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
+  purgeAndReseedDatabase: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
+
+async function seedInitialBets(db: Firestore) {
+  const betsCollection = collection(db, 'bets');
+  try {
+    console.log("Seeding initial bets...");
+    const batch = writeBatch(db);
+    
+    const bet1Ref = doc(betsCollection);
+    batch.set(bet1Ref, {
+      question: "How long will the ceremony be (in minutes)?",
+      type: 'range',
+      range: [20, 45],
+      icon: 'Clock',
+      pool: 0,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+
+    const bet2Ref = doc(betsCollection);
+    batch.set(bet2Ref, {
+      question: "Will Michelle wear a veil?",
+      type: 'options',
+      options: ['Yes', 'No'],
+      icon: 'Users',
+      pool: 0,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+
+    const bet3Ref = doc(betsCollection);
+    batch.set(bet3Ref, {
+      question: "Will Adam cry during the vows?",
+      type: 'options',
+      options: ['Yes', 'No'],
+      icon: 'Mic',
+      pool: 0,
+      status: 'open',
+      createdAt: serverTimestamp(),
+    });
+
+    await batch.commit();
+  } catch (error) {
+    console.error("Error seeding bets: ", error);
+    throw new Error('Could not add initial bets.');
+  }
+};
 
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
-  const seededRef = useRef(false);
 
   useEffect(() => {
     if (!firebaseEnabled || !db) {
@@ -36,60 +82,19 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const seedInitialBets = async () => {
-      const betsCollection = collection(db, 'bets');
-      try {
-        const existingBets = await getDocs(betsCollection);
-        if (existingBets.empty) {
-          console.log("Seeding initial bets...");
-          const batch = writeBatch(db);
-          
-          const bet1Ref = doc(betsCollection);
-          batch.set(bet1Ref, {
-            question: "How long will the ceremony be (in minutes)?",
-            type: 'range',
-            range: [20, 45],
-            icon: 'Clock',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          });
-
-          const bet2Ref = doc(betsCollection);
-          batch.set(bet2Ref, {
-            question: "Will Michelle wear a veil?",
-            type: 'options',
-            options: ['Yes', 'No'],
-            icon: 'Users',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          });
-
-          const bet3Ref = doc(betsCollection);
-          batch.set(bet3Ref, {
-            question: "Will Adam cry during the vows?",
-            type: 'options',
-            options: ['Yes', 'No'],
-            icon: 'Mic',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          });
-
-          await batch.commit();
+    const runInitialSeed = async () => {
+        try {
+            const betsCollection = collection(db, 'bets');
+            const existingBets = await getDocs(betsCollection);
+            if (existingBets.empty) {
+                await seedInitialBets(db);
+            }
+        } catch (error) {
+            console.error("Failed to run initial seed:", error);
+            toast({ variant: 'destructive', title: 'Seeding Error', description: 'Could not create initial bets.' });
         }
-      } catch (error) {
-        console.error("Error seeding bets: ", error);
-        toast({ variant: 'destructive', title: 'Error Seeding Data', description: 'Could not add initial bets.' });
-      }
-    };
-
-    // This check prevents seeding from running twice in dev due to Strict Mode
-    if (!seededRef.current) {
-        seedInitialBets();
-        seededRef.current = true;
     }
+    runInitialSeed();
     
     const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
@@ -105,7 +110,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [toast]);
 
   const showFirebaseDisabledToast = () => {
     toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
@@ -251,9 +256,27 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const purgeAndReseedDatabase = async () => {
+    if (!firebaseEnabled || !db) {
+      throw new Error("Firebase not configured");
+    }
+
+    const batch = writeBatch(db);
+
+    const collectionsToDelete = ['wagers', 'bets', 'users'];
+    for (const collectionName of collectionsToDelete) {
+      const snapshot = await getDocs(collection(db, collectionName));
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    }
+
+    await batch.commit();
+
+    await seedInitialBets(db);
+  };
+
 
   return (
-    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet }}>
+    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, purgeAndReseedDatabase }}>
       {children}
     </BetContext.Provider>
   );
