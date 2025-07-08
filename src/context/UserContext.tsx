@@ -24,12 +24,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !auth) {
       setLoading(false);
       return;
     }
 
-    const unsubscribeAuth = onAuthStateChanged(auth!, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       if (!currentUser) {
         setUserData(null);
@@ -42,8 +42,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let unsubscribeFirestore: () => void;
-    if (user && firebaseEnabled) {
-        const userRef = doc(db!, 'users', user.uid);
+    if (user && firebaseEnabled && db) {
+        const userRef = doc(db, 'users', user.uid);
         unsubscribeFirestore = onSnapshot(userRef, (doc) => {
             if (doc.exists()) {
                 setUserData(doc.data() as UserData);
@@ -69,18 +69,31 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       });
       throw new Error("Firebase not configured");
     }
+    
+    try {
+        const userCredential = await signInAnonymously(auth);
+        const userRef = doc(db, 'users', userCredential.user.uid);
+        const userDoc = await getDoc(userRef);
 
-    const userCredential = await signInAnonymously(auth);
-    const userRef = doc(db, 'users', userCredential.user.uid);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      await setDoc(userRef, {
-        nickname,
-        balance: 1000, // Starting balance
-        isAdmin: false,
-        lastActive: serverTimestamp(),
-      });
+        if (!userDoc.exists()) {
+          await setDoc(userRef, {
+            nickname,
+            balance: 1000, // Starting balance
+            isAdmin: false,
+            lastActive: serverTimestamp(),
+          });
+        }
+    } catch (error: any) {
+        if (error.code === 'auth/configuration-not-found') {
+            toast({
+                variant: 'destructive',
+                title: 'Authentication Error',
+                description: 'Anonymous sign-in is not enabled. Please enable it in your Firebase project settings under Authentication > Sign-in method.',
+                duration: 9000,
+            });
+        }
+        console.error("Firebase login error:", error);
+        throw error; // re-throw to be caught by the UI form
     }
   };
 
