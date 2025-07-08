@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -13,10 +14,21 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 import { useUser } from "@/context/UserContext";
 import { useBets, type Bet } from "@/context/BetContext";
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2 } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface BetCardProps {
@@ -32,14 +44,26 @@ const iconMap: { [key: string]: React.ElementType } = {
 
 export default function BetCard({ bet }: BetCardProps) {
   const { userData } = useUser();
-  const { placeBet } = useBets();
+  const { placeBet, cancelWager, myWagers } = useBets();
   const { toast } = useToast();
   
-  const [betAmount, setBetAmount] = useState<number | string>(100);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const myWager = myWagers.get(bet.id);
+  
+  const [betAmount, setBetAmount] = useState<number | string>(myWager?.amount || 100);
   const [betValue, setBetValue] = useState(
-    bet.type === 'range' && bet.range ? bet.range[0] : (bet.options ? bet.options[0] : '')
+      myWager?.outcome || (bet.type === 'range' && bet.range ? bet.range[0] : (bet.options ? bet.options[0] : ''))
   );
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  useEffect(() => {
+    if (myWager) {
+        setBetAmount(myWager.amount);
+        setBetValue(myWager.outcome);
+    }
+  }, [myWager]);
 
   const isClosed = bet.status !== 'open';
 
@@ -57,11 +81,15 @@ export default function BetCard({ bet }: BetCardProps) {
       setIsSubmitting(false);
       return;
     }
-    if (numericBetAmount > userData.balance) {
+    
+    // Check balance against the *additional* amount being wagered
+    const existingWagerAmount = myWager?.amount || 0;
+    const additionalAmount = numericBetAmount - existingWagerAmount;
+    if (additionalAmount > userData.balance) {
       toast({
         variant: "destructive",
         title: "Insufficient Balance",
-        description: "You don't have enough points for this bet.",
+        description: `You need ${additionalAmount.toLocaleString()} more points for this bet.`,
       });
       setIsSubmitting(false);
       return;
@@ -70,20 +98,43 @@ export default function BetCard({ bet }: BetCardProps) {
     try {
       await placeBet(bet.id, betValue, numericBetAmount);
       toast({
-        title: "Bet Placed!",
+        title: `Bet ${myWager ? 'Updated' : 'Placed'}!`,
         description: `You wagered ${numericBetAmount} points on "${bet.question}". Good luck!`,
       });
-    } catch(error) {
+    } catch(error: any) {
        toast({
         variant: "destructive",
         title: "Bet Failed",
-        description: "There was an error placing your bet. Please try again.",
+        description: error.message || "There was an error placing your bet. Please try again.",
       });
       console.error(error);
     } finally {
       setIsSubmitting(false);
     }
   };
+  
+  const handleCancelBet = async () => {
+      if (!myWager) return;
+      setIsCancelling(true);
+      try {
+          await cancelWager(myWager.id);
+          toast({
+              title: "Wager Canceled",
+              description: `Your ${myWager.amount} point wager has been returned to your balance.`
+          });
+          setBetAmount(100); // Reset to default
+      } catch (error: any) {
+          toast({
+              variant: "destructive",
+              title: "Cancellation Failed",
+              description: error.message || "Could not cancel your wager. Please try again."
+          });
+      } finally {
+          setIsCancelling(false);
+          setShowCancelConfirm(false);
+      }
+  };
+
 
   const Icon = iconMap[bet.icon] || Users;
 
@@ -125,7 +176,8 @@ export default function BetCard({ bet }: BetCardProps) {
   }
 
   return (
-    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <>
+    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 ${myWager ? 'border-primary' : ''}`}>
       <CardHeader className="bg-accent/50 p-4 border-b">
         <div className="flex items-center gap-4">
           <div className="bg-primary/20 p-3 rounded-full">
@@ -181,17 +233,40 @@ export default function BetCard({ bet }: BetCardProps) {
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             min="1"
-            max={userData?.balance}
             className="mt-2"
             placeholder="Enter your bet"
           />
         </div>
       </CardContent>
-      <CardFooter className="bg-muted/30 p-4">
-        <Button onClick={handlePlaceBet} className="w-full" size="lg" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="animate-spin" /> : "Place Bet"}
+      <CardFooter className="bg-muted/30 p-4 flex gap-2">
+        {myWager && (
+            <Button onClick={() => setShowCancelConfirm(true)} variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" disabled={isCancelling}>
+                {isCancelling ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                <span className="sr-only">Cancel Bet</span>
+            </Button>
+        )}
+        <Button onClick={handlePlaceBet} className="w-full" size="lg" disabled={isSubmitting || isCancelling}>
+          {isSubmitting ? <Loader2 className="animate-spin" /> : (myWager ? "Update Bet" : "Place Bet")}
         </Button>
       </CardFooter>
     </Card>
+
+    <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will cancel your wager of {myWager?.amount} points on this bet. The amount will be returned to your balance.
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel>Keep Wager</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCancelBet} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, Cancel It
+            </AlertDialogAction>
+        </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

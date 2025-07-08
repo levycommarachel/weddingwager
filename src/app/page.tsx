@@ -6,9 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Gem, Loader2 } from 'lucide-react';
-import { useState } from 'react';
-import { collection, getDocs, writeBatch, doc, serverTimestamp } from "firebase/firestore";
-import { db } from '@/lib/firebase';
+import { useState, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useUser } from '@/context/UserContext';
 import { useToast } from '@/hooks/use-toast';
+import { useBets } from '@/context/BetContext';
 
 const loginSchema = z.object({
   nickname: z.string().min(3, { message: 'Nickname must be at least 3 characters long.' }).max(20, { message: 'Nickname must be 20 characters or less.' }),
@@ -23,7 +22,8 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useUser();
+  const { user, login, loading: userLoading } = useUser();
+  const { bets, seedInitialBets } = useBets();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,56 +31,23 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
     defaultValues: { nickname: '' },
   });
+  
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!userLoading && user) {
+      router.replace('/betting');
+    }
+  }, [user, userLoading, router]);
 
   async function onSubmit(values: z.infer<typeof loginSchema>) {
     setIsSubmitting(true);
     try {
       await login(values.nickname);
 
-      if (db) {
-        const betsCollectionRef = collection(db, 'bets');
-        const betsSnapshot = await getDocs(betsCollectionRef);
-
-        if (betsSnapshot.empty) {
-          console.log("No bets found. Seeding initial bets...");
-          const batch = writeBatch(db);
-          
-          const bet1Data = {
-            question: "Will Michelle wear a veil?",
-            type: 'options',
-            options: ['Yes', 'No'],
-            icon: 'Users',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          };
-          batch.set(doc(betsCollectionRef), bet1Data);
-      
-          const bet2Data = {
-            question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)?",
-            type: 'options',
-            options: ['Yes', 'No'],
-            icon: 'Clock',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          };
-          batch.set(doc(betsCollectionRef), bet2Data);
-      
-          const bet3Data = {
-            question: "Will Adam cry during the ceremony?",
-            type: 'options',
-            options: ['Yes', 'No'],
-            icon: 'Mic',
-            pool: 0,
-            status: 'open',
-            createdAt: serverTimestamp(),
-          };
-          batch.set(doc(betsCollectionRef), bet3Data);
-      
-          await batch.commit();
-          console.log("Initial bets seeded successfully.");
-        }
+      // Seed bets if none exist
+      if (bets.length === 0) {
+        console.log("No bets found. Seeding initial bets...");
+        await seedInitialBets();
       }
 
       toast({
@@ -114,6 +81,15 @@ export default function LoginPage() {
     } finally {
         setIsSubmitting(false);
     }
+  }
+
+  // Show a loader while checking auth state
+  if (userLoading || user) {
+     return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
   }
 
   return (
