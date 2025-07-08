@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useRouter } from 'next/navigation';
@@ -23,7 +22,7 @@ const loginSchema = z.object({
 export default function LoginPage() {
   const router = useRouter();
   const { user, login, loading: userLoading } = useUser();
-  const { bets, seedInitialBets } = useBets();
+  const { seedInitialBets } = useBets();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,11 +43,8 @@ export default function LoginPage() {
     try {
       await login(values.nickname);
 
-      // Seed bets if none exist
-      if (bets.length === 0) {
-        console.log("No bets found. Seeding initial bets...");
-        await seedInitialBets();
-      }
+      // Attempt to seed initial bets. The function itself will now check if it's necessary.
+      await seedInitialBets();
 
       toast({
         title: `Welcome, ${values.nickname}!`,

@@ -58,8 +58,14 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const seedInitialBets = async () => {
     if (!firebaseEnabled || !db) return;
     try {
-      const batch = writeBatch(db);
       const betsCollectionRef = collection(db, 'bets');
+      const querySnapshot = await getDocs(query(betsCollectionRef));
+      
+      if (!querySnapshot.empty) {
+        return; // Don't seed if bets already exist
+      }
+      
+      const batch = writeBatch(db);
       
       const bet1Data = {
         question: "Will Michelle wear a veil?",
@@ -86,6 +92,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       toast({ title: 'Success!', description: 'Initial bets have been seeded.' });
     } catch (error) {
       console.error("Error seeding bets: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not seed initial bets.' });
     }
   };
 
