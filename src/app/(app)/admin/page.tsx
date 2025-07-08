@@ -188,21 +188,28 @@ export default function AdminPage() {
                                         )} />
                                         
                                         {betType === 'range' && (
-                                            <div className="flex gap-4">
-                                                <FormField control={form.control} name="range.start" render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormLabel>Range Start</FormLabel>
-                                                        <FormControl><Input type="number" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
-                                                <FormField control={form.control} name="range.end" render={({ field }) => (
-                                                    <FormItem className="flex-1">
-                                                        <FormLabel>Range End</FormLabel>
-                                                        <FormControl><Input type="number" {...field} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
+                                            <div className="space-y-2">
+                                                <div className="flex gap-4">
+                                                    <FormField control={form.control} name="range.start" render={({ field }) => (
+                                                        <FormItem className="flex-1">
+                                                            <FormLabel>Range Start</FormLabel>
+                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )} />
+                                                    <FormField control={form.control} name="range.end" render={({ field }) => (
+                                                        <FormItem className="flex-1">
+                                                            <FormLabel>Range End</FormLabel>
+                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )} />
+                                                </div>
+                                                {form.formState.errors.range?.message && (
+                                                    <p className="text-sm font-medium text-destructive">
+                                                        {form.formState.errors.range.message}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
 
@@ -225,6 +232,11 @@ export default function AdminPage() {
                                                 <Button type="button" variant="outline" size="sm" onClick={() => append({value: ''})}>
                                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Option
                                                 </Button>
+                                                {form.formState.errors.options?.message && (
+                                                    <p className="text-sm font-medium text-destructive">
+                                                        {form.formState.errors.options.message}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
                                         <Button type="submit" className="w-full" disabled={isSubmitting}>
