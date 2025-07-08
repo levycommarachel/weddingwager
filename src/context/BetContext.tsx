@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, auth, firebaseEnabled } from '@/lib/firebase';
 import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs } from 'firebase/firestore';
@@ -28,6 +28,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
+  const seededRef = useRef(false);
 
   useEffect(() => {
     if (!firebaseEnabled || !db) {
@@ -35,9 +36,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const initializeBets = async () => {
+    const seedInitialBets = async () => {
       const betsCollection = collection(db, 'bets');
-      
       try {
         const existingBets = await getDocs(betsCollection);
         if (existingBets.empty) {
@@ -83,33 +83,28 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         console.error("Error seeding bets: ", error);
         toast({ variant: 'destructive', title: 'Error Seeding Data', description: 'Could not add initial bets.' });
       }
+    };
 
-      const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
+    // This check prevents seeding from running twice in dev due to Strict Mode
+    if (!seededRef.current) {
+        seedInitialBets();
+        seededRef.current = true;
+    }
+    
+    const unsubscribe = onSnapshot(collection(db, "bets"), (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        id: doc.id,
+        ...doc.data()
         } as Bet));
         setBets(betsData);
         setLoading(false);
-      }, (error) => {
+    }, (error) => {
         console.error("Bet listener error:", error);
         setLoading(false);
         toast({ variant: 'destructive', title: 'Network Error', description: 'Could not connect to bets data.' });
-      });
-
-      return unsubscribe;
-    };
-
-    let unsubscribe: (() => void) | undefined;
-    initializeBets().then(unsub => {
-      unsubscribe = unsub;
     });
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe();
   }, []);
 
   const showFirebaseDisabledToast = () => {
