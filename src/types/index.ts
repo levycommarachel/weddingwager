@@ -37,3 +37,32 @@ export interface Wager {
     updatedAt?: Timestamp;
     payout?: number; // Calculated on settlement
 }
+
+// A single bet within a parlay
+export interface ParlayLeg {
+  betId: string;
+  question: string;
+  chosenOutcome: string | number;
+  type: 'range' | 'options';
+  options?: string[];
+  range?: [number, number];
+  icon: string;
+}
+
+// Stored in /parlays/{parlayId}
+export interface Parlay {
+  id: string; // Firestore document ID
+  userId: string;
+  nickname: string;
+  wager: number;
+  legs: ParlayLeg[];
+  legIds: string[]; // For querying
+  payoutMultiplier: number;
+  potentialPayout: number;
+  status: 'open' | 'won' | 'lost';
+  // Keep track of resolved legs to determine overall status
+  resolvedLegs: Record<string, 'won' | 'lost'>;
+  createdAt: Timestamp;
+  resolvedAt?: Timestamp;
+  payout?: number; // Final payout amount
+}

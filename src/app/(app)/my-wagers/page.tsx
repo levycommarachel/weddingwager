@@ -5,9 +5,9 @@ import { useState, useEffect } from "react";
 import { useBets } from '@/context/BetContext';
 import { useUser } from '@/context/UserContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil } from "lucide-react";
+import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil, Layers, Hourglass, CheckCircle2, XCircle } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
-import type { Bet, Wager } from '@/types';
+import type { Bet, Wager, Parlay, ParlayLeg } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Button } from "@/components/ui/button";
 import {
@@ -35,8 +35,8 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     let StatusPill, ResultIcon, resultColor, resultText;
 
     if (isResolved && hasPayoutInfo) {
-        const isWinner = bet.winningOutcome !== undefined && String(bet.winningOutcome) === String(wager.outcome);
-        const profit = (wager.payout ?? 0) - wager.amount;
+        const isWinner = wager.payout > wager.amount;
+        const profit = wager.payout - wager.amount;
 
         if (isWinner) {
             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
@@ -108,9 +108,84 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     );
 }
 
+function ParlayLegStatus({ leg, parlay }: { leg: ParlayLeg, parlay: Parlay }) {
+    const legStatus = parlay.resolvedLegs[leg.betId];
+
+    if (!legStatus) {
+        return <Hourglass className="h-4 w-4 text-muted-foreground" title="Pending" />;
+    }
+    if (legStatus === 'won') {
+        return <CheckCircle2 className="h-4 w-4 text-green-500" title="Won" />;
+    }
+    return <XCircle className="h-4 w-4 text-destructive" title="Lost" />;
+}
+
+function ParlayCard({ parlay }: { parlay: Parlay }) {
+    let StatusPill, ResultIcon, resultColor, resultText;
+
+    if (parlay.status !== 'open' && parlay.payout !== undefined) {
+        const profit = parlay.payout - parlay.wager;
+        if (parlay.status === 'won') {
+             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
+            ResultIcon = TrendingUp;
+            resultColor = 'text-green-500';
+            resultText = `+${profit.toLocaleString()} Pts`;
+        } else {
+             StatusPill = <Badge variant="destructive">Lost</Badge>;
+            ResultIcon = TrendingDown;
+            resultColor = 'text-destructive';
+            resultText = `${profit.toLocaleString()} Pts`;
+        }
+    } else {
+        StatusPill = <Badge variant="secondary">Open</Badge>;
+    }
+
+    return (
+        <Card className="flex flex-col">
+            <CardHeader>
+                <div className="flex justify-between items-start gap-4">
+                    <CardTitle className="font-headline text-xl flex items-center gap-2">
+                        <Layers /> {parlay.legs.length}-Leg Parlay
+                    </CardTitle>
+                    {StatusPill}
+                </div>
+                <CardDescription>
+                    Wager: <span className="font-semibold text-foreground">{parlay.wager.toLocaleString()} Pts</span>
+                    <span className="mx-2">|</span>
+                    Potential Payout: <span className="font-semibold text-foreground">{parlay.potentialPayout.toLocaleString()} Pts</span>
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Legs</p>
+                <ul className="space-y-3">
+                    {parlay.legs.map(leg => (
+                        <li key={leg.betId} className="flex items-start gap-3 text-sm p-2 rounded-md bg-accent/30 border">
+                            <ParlayLegStatus leg={leg} parlay={parlay} />
+                            <div className="flex-1">
+                                <p className="text-muted-foreground leading-tight">{leg.question}</p>
+                                <p>Your Pick: <span className="font-semibold text-foreground">{leg.chosenOutcome}</span></p>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            </CardContent>
+            {parlay.status !== 'open' && parlay.payout !== undefined && ResultIcon && (
+                 <>
+                    <Separator />
+                    <CardFooter className="p-4 bg-muted/30">
+                        <div className="flex items-center gap-2">
+                            <ResultIcon className={`h-5 w-5 ${resultColor}`} />
+                            <span className={`font-bold text-lg ${resultColor}`}>{resultText}</span>
+                        </div>
+                    </CardFooter>
+                </>
+            )}
+        </Card>
+    )
+}
 
 export default function MyWagersPage() {
-    const { myWagers, bets, loading: betsLoading, updateWager } = useBets();
+    const { myWagers, myParlays, bets, loading: betsLoading, updateWager } = useBets();
     const { user, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
@@ -196,27 +271,53 @@ export default function MyWagersPage() {
             <div className="container mx-auto py-8 px-4">
                 <div className="text-center mb-12">
                     <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">My Wagers</h1>
-                    <p className="text-muted-foreground mt-2 text-lg">Track your bets and see your results.</p>
+                    <p className="text-muted-foreground mt-2 text-lg">Track your single bets and parlays.</p>
                 </div>
                 
-                {wagersWithBetData.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                    {wagersWithBetData.map(({ wager, bet }) => (
-                        <WagerCard 
-                            key={wager.id} 
-                            wager={wager} 
-                            bet={bet} 
-                            onEdit={() => setEditingWager({ wager, bet })}
-                        />
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
-                        <Ticket className="h-12 w-12 mx-auto mb-4" />
-                        <p className="text-lg font-medium">You haven't placed any wagers yet.</p>
-                        <p>Head to the "All Wagers" page to get in on the action!</p>
-                    </div>
-                )}
+                <div className="space-y-12">
+                    <section>
+                         <h2 className="font-headline text-3xl md:text-4xl font-bold tracking-tight mb-6 flex items-center gap-3">
+                            <Ticket />
+                            Single Wagers
+                        </h2>
+                        {wagersWithBetData.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {wagersWithBetData.map(({ wager, bet }) => (
+                                <WagerCard 
+                                    key={wager.id} 
+                                    wager={wager} 
+                                    bet={bet} 
+                                    onEdit={() => setEditingWager({ wager, bet })}
+                                />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
+                                <p className="text-lg font-medium">You haven't placed any single wagers yet.</p>
+                                <p>Head to the "All Wagers" page to get in on the action!</p>
+                            </div>
+                        )}
+                    </section>
+                    
+                    <section>
+                        <h2 className="font-headline text-3xl md:text-4xl font-bold tracking-tight mb-6 flex items-center gap-3">
+                            <Layers />
+                            Parlays
+                        </h2>
+                        {myParlays.length > 0 ? (
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                                {myParlays.map((parlay) => (
+                                    <ParlayCard key={parlay.id} parlay={parlay} />
+                                ))}
+                            </div>
+                        ) : (
+                             <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
+                                <p className="text-lg font-medium">You haven't placed any parlays yet.</p>
+                                <p>Visit the "Parlay Builder" to create one!</p>
+                            </div>
+                        )}
+                    </section>
+                </div>
             </div>
 
             <Dialog open={!!editingWager} onOpenChange={(open) => !open && setEditingWager(null)}>
