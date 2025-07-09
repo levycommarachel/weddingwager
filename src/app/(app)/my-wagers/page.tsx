@@ -30,12 +30,11 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     if (!bet) return null;
 
     const isResolved = bet.status === 'resolved';
-    const hasPayoutInfo = wager.payout !== undefined;
     const isOpen = bet.status === 'open';
 
     let StatusPill, ResultIcon, resultColor, resultText;
 
-    if (isResolved && hasPayoutInfo) {
+    if (isResolved && typeof wager.payout === 'number') {
         const isWinner = wager.payout > wager.amount;
         const profit = wager.payout - wager.amount;
 
@@ -94,7 +93,7 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
                     </div>
                 )}
             </CardContent>
-            {isResolved && hasPayoutInfo && ResultIcon && (
+            {isResolved && ResultIcon && (
                 <>
                 <Separator />
                 <CardFooter className="p-4 bg-muted/30">
@@ -125,7 +124,7 @@ function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; })
     let StatusPill, ResultIcon, resultColor, resultText;
     const isOpen = parlay.status === 'open';
 
-    if (parlay.status !== 'open' && parlay.payout !== undefined) {
+    if (parlay.status !== 'open' && typeof parlay.payout === 'number') {
         const profit = parlay.payout - parlay.wager;
         if (parlay.status === 'won') {
              StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
@@ -178,7 +177,7 @@ function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; })
                     ))}
                 </ul>
             </CardContent>
-            {parlay.status !== 'open' && parlay.payout !== undefined && ResultIcon && (
+            {parlay.status !== 'open' && ResultIcon && (
                  <>
                     <Separator />
                     <CardFooter className="p-4 bg-muted/30">
