@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState } from 'react';
@@ -150,6 +151,7 @@ export default function AdminPage() {
     
     const handleSettleBet = async () => {
         if (betToSettle && winningOutcome !== '') {
+            if(!db) return;
             await settleBet(betToSettle.id, winningOutcome);
             setBetToSettle(null);
             setWinningOutcome('');
