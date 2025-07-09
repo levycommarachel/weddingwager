@@ -2,36 +2,41 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
+// Add a type declaration for our custom window property
+declare global {
+  interface Window {
+    __firebase_config__?: any;
+  }
+}
+
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let firebaseEnabled = false;
 
 try {
-  const firebaseConfigStr = process.env.NEXT_PUBLIC_FIREBASE_CONFIG;
-  
-  // Ensure the string is not null, undefined, or an empty object string before trying to parse.
-  if (firebaseConfigStr && firebaseConfigStr.trim() !== '{}' && firebaseConfigStr.length > 2) {
-    const firebaseConfig = JSON.parse(firebaseConfigStr);
+  // This code only runs in the browser. We read the config that was
+  // injected by the root layout.
+  if (typeof window !== 'undefined' && window.__firebase_config__) {
+    const firebaseConfig = window.__firebase_config__;
     
-    // Check for a key property to ensure the config is valid
     if (firebaseConfig.apiKey) {
       app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
       auth = getAuth(app);
       db = getFirestore(app);
       firebaseEnabled = true;
     } else {
-        console.warn("Firebase config was parsed but is invalid (missing apiKey).");
+        console.warn("Firebase config was found but is invalid (missing apiKey).");
     }
-  } else {
-      console.warn("Firebase config environment variable is not set or is empty.");
+  } else if (typeof window !== 'undefined') {
+      console.warn("Firebase config was not found on the window object.");
   }
 } catch (e) {
   console.error("Firebase initialization failed:", e);
 }
 
-if (!firebaseEnabled) {
-    console.warn("Firebase is not configured. The app may run in a limited, offline mode. Ensure FIREBASE_WEBAPP_CONFIG is set correctly in your hosting environment.");
+if (!firebaseEnabled && typeof window !== 'undefined') {
+    console.warn("Firebase is not configured. The app may run in a limited, offline mode.");
 }
 
 export { db, auth, firebaseEnabled };
