@@ -16,6 +16,7 @@ interface BetContextType {
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
   seedInitialBets: () => Promise<void>;
+  updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -181,6 +182,50 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateWager = async (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => {
+    if (!firebaseEnabled || !db || !user) {
+        showFirebaseDisabledToast();
+        if (!user) throw new Error("User not authenticated");
+        return;
+    }
+
+    const wagerRef = doc(db, "wagers", wagerId);
+    const userRef = doc(db, "users", user.uid);
+    const betRef = doc(db, "bets", betId);
+
+    await runTransaction(db, async (transaction) => {
+        const [userDoc, betDoc] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(betRef)
+        ]);
+
+        if (!betDoc.exists() || betDoc.data().status !== 'open') {
+            throw new Error("This bet is no longer open for changes.");
+        }
+        if (!userDoc.exists()) {
+            throw new Error("User data not found.");
+        }
+
+        const currentBalance = userDoc.data().balance;
+        const amountDifference = newAmount - oldAmount;
+
+        if (currentBalance < amountDifference) {
+            throw new Error("Insufficient balance for this change.");
+        }
+
+        // Update balances and pools
+        transaction.update(userRef, { balance: increment(-amountDifference) });
+        transaction.update(betRef, { pool: increment(amountDifference) });
+
+        // Update the wager itself
+        transaction.update(wagerRef, {
+            amount: newAmount,
+            outcome: newOutcome,
+            updatedAt: serverTimestamp()
+        });
+    });
+  };
+
   const settleBet = async (betId: string, winningOutcome: string | number) => {
     if (!firebaseEnabled || !db) { showFirebaseDisabledToast(); return; }
     
@@ -249,7 +294,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, loading, addBet, placeBet, settleBet, seedInitialBets }}>
+    <BetContext.Provider value={{ bets, myWagers, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets }}>
       {children}
     </BetContext.Provider>
   );

@@ -34,5 +34,6 @@ export interface Wager {
     amount: number;
     outcome: string | number; // What the user bet on
     createdAt: Timestamp;
+    updatedAt?: Timestamp;
     payout?: number; // Calculated on settlement
 }
