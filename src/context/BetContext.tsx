@@ -80,19 +80,20 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const seedInitialBets = async () => {
-    if (!db) {
+    const currentDb = db;
+    if (!currentDb) {
         showFirebaseDisabledToast();
         return;
     }
     try {
-      const betsCollectionRef = collection(db, 'bets');
+      const betsCollectionRef = collection(currentDb, 'bets');
       const querySnapshot = await getDocs(query(betsCollectionRef));
       
       if (!querySnapshot.empty) {
         return; // Don't seed if bets already exist
       }
       
-      const batch = writeBatch(db);
+      const batch = writeBatch(currentDb);
       
       const bet1Data = {
         question: "Will Michelle wear a veil?",
@@ -241,36 +242,43 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   const settleBet = async (betId: string, winningOutcome: string | number) => {
     const currentDb = db;
     if (!currentDb) {
-        showFirebaseDisabledToast();
-        return;
+      showFirebaseDisabledToast();
+      return;
     }
-    
-     try {
-      const betRef = doc(currentDb, "bets", betId);
-      const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
 
+    try {
+      // Query for all wagers related to the bet *before* the transaction.
+      const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
+      const wagersSnapshot = await getDocs(wagersQuery);
+      const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
+
+      const betRef = doc(currentDb, "bets", betId);
+      
       await runTransaction(currentDb, async (transaction) => {
+        // Read the bet document *inside* the transaction to ensure atomicity.
         const betDoc = await transaction.get(betRef);
         if (!betDoc.exists() || betDoc.data().status !== 'open') {
-            throw new Error("Bet is not open or does not exist.");
+          throw new Error("Bet is not open or does not exist.");
         }
-        
-        const wagersSnapshot = await getDocs(wagersQuery);
 
         const betPool = betDoc.data()!.pool;
-        const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
-        
+
+        // Process wagers with the data fetched before the transaction.
         const winningWagers = wagers.filter(wager => String(wager.outcome) === String(winningOutcome));
         const losingWagers = wagers.filter(wager => String(wager.outcome) !== String(winningOutcome));
         const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
-
+        
+        // Update the bet status.
         transaction.update(betRef, {
-          status: "resolved", winningOutcome, resolvedAt: serverTimestamp(),
+          status: "resolved", 
+          winningOutcome: String(winningOutcome),
+          resolvedAt: serverTimestamp(),
         });
 
         if (winningWagers.length > 0 && totalWinningWagerAmount > 0) {
           const payoutRatio = betPool / totalWinningWagerAmount;
           
+          // Update winning wagers and user balances.
           for (const wager of winningWagers) {
             const userRef = doc(currentDb, "users", wager.userId);
             const wagerRef = doc(currentDb, "wagers", wager.id);
@@ -279,6 +287,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
             transaction.update(wagerRef, { payout });
           }
 
+          // Update losing wagers.
           for (const wager of losingWagers) {
             const wagerRef = doc(currentDb, "wagers", wager.id);
             transaction.update(wagerRef, { payout: 0 });
@@ -295,13 +304,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       });
-      toast({ title: "Bet Settled!", description: `Payouts distributed for wagers.` });
+
+      toast({ title: "Bet Settled!", description: `Payouts have been distributed.` });
+
     } catch (error) {
       console.error("Error settling wagers: ", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       toast({ variant: 'destructive', title: 'Error Settling Wagers', description: errorMessage });
     }
-  }
+  };
 
 
   return (
