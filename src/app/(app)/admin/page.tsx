@@ -33,8 +33,8 @@ const betFormSchema = z.object({
   icon: z.string().min(2, 'Icon name is required.'),
   type: z.enum(['range', 'options']),
   range: z.object({
-    start: z.coerce.number(),
-    end: z.coerce.number(),
+    start: z.string().min(1, { message: 'Start value is required.' }).pipe(z.coerce.number()),
+    end: z.string().min(1, { message: 'End value is required.' }).pipe(z.coerce.number()),
   }).optional(),
   options: z.array(z.object({ value: z.string().min(1, 'Option cannot be empty.') })).optional(),
 }).superRefine((data, ctx) => {
@@ -83,7 +83,7 @@ export default function AdminPage() {
             question: '',
             icon: 'Users',
             type: 'range',
-            range: { start: 1, end: 10 },
+            range: { start: '1', end: '10' },
             options: [{value: ''}, {value: ''}],
         },
     });
@@ -230,6 +230,11 @@ export default function AdminPage() {
                                                         </FormItem>
                                                     )} />
                                                 </div>
+                                                 {form.formState.errors.range?.end?.message && (
+                                                    <p className="text-sm font-medium text-destructive">
+                                                        {form.formState.errors.range.end.message}
+                                                    </p>
+                                                )}
                                             </div>
                                         )}
 
