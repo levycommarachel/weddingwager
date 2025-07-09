@@ -33,52 +33,35 @@ const betFormSchema = z.object({
   icon: z.string().min(2, { message: 'Icon name is required.' }),
   type: z.enum(['range', 'options']),
   range: z.object({
-    start: z.string(),
-    end: z.string(),
+    start: z.string().refine(val => val.trim() !== '', { message: 'Start value is required.' }),
+    end: z.string().refine(val => val.trim() !== '', { message: 'End value is required.' }),
   }).optional(),
-  options: z.array(z.object({ value: z.string() })).optional(),
-}).refine((data) => {
-    // This is a workaround for a bug in react-hook-form where the refine
-    // function runs before the transform function, causing validation errors.
-    if (data.type === 'range' && data.range?.start && data.range?.end) {
-        return Number(data.range.start) < Number(data.range.end);
-    }
-    return true;
-}, {
-    message: 'Start must be less than end.',
-    path: ['range', 'end'],
-}).transform((data) => {
-    if (data.type === 'range' && data.range) {
-        return {
-            ...data,
-            range: {
-                start: Number(data.range.start),
-                end: Number(data.range.end)
-            }
-        }
-    }
-    return data;
+  options: z.array(z.object({ 
+    value: z.string().min(1, 'Option cannot be empty.')
+  })).optional(),
 }).superRefine((data, ctx) => {
     if (data.type === 'range') {
-        const startVal = data.range?.start;
-        const endVal = data.range?.end;
-
-        if (startVal === undefined || String(startVal).trim() === '') {
-            ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Start value is required.' });
+        if (!data.range?.start && !data.range?.end) {
+             ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Range values are required.' });
+             return;
         }
-        if (endVal === undefined || String(endVal).trim() === '') {
-            ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'End value is required.' });
-        }
+        
+        const startNum = Number(data.range.start);
+        const endNum = Number(data.range.end);
 
-        if (startVal && String(startVal).trim() !== '' && endVal && String(endVal).trim() !== '') {
-            const startNum = Number(startVal);
-            const endNum = Number(endVal);
-            if (isNaN(startNum)) {
-                ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Must be a valid number.' });
-            }
-            if (isNaN(endNum)) {
-                ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'Must be a valid number.' });
-            }
+        if (isNaN(startNum)) {
+            ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Must be a valid number.' });
+        }
+        if (isNaN(endNum)) {
+            ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'Must be a valid number.' });
+        }
+        
+        if (!isNaN(startNum) && !isNaN(endNum) && startNum >= endNum) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['range.end'],
+                message: 'End must be greater than start.',
+            });
         }
     }
     if (data.type === 'options') {
@@ -88,25 +71,11 @@ const betFormSchema = z.object({
                 path: ['options'],
                 message: 'At least two options are required.',
             });
-        } else {
-            let hasEmpty = false;
-            data.options.forEach((opt, index) => {
-                if (opt.value.trim() === '') {
-                    hasEmpty = true;
-                    ctx.addIssue({
-                        code: 'custom',
-                        path: [`options.${index}.value`],
-                        message: 'Option cannot be empty.',
-                    });
-                }
-            });
-            if(hasEmpty) return;
         }
     }
 });
 
-
-type BetFormInput = z.input<typeof betFormSchema>;
+type BetFormValues = z.infer<typeof betFormSchema>;
 
 const iconOptions = [
     { value: 'Users', label: 'People', icon: Users },
@@ -132,7 +101,7 @@ export default function AdminPage() {
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
-    const form = useForm<BetFormInput>({
+    const form = useForm<BetFormValues>({
         resolver: zodResolver(betFormSchema),
         defaultValues: {
             question: '',
@@ -150,7 +119,7 @@ export default function AdminPage() {
 
     const betType = form.watch('type');
 
-    async function onSubmit(values: z.infer<typeof betFormSchema>) {
+    async function onSubmit(values: BetFormValues) {
         setIsSubmitting(true);
         try {
             const newBetData: any = {
@@ -160,7 +129,7 @@ export default function AdminPage() {
             };
 
             if (values.type === 'range' && values.range) {
-                newBetData.range = [values.range.start, values.range.end];
+                newBetData.range = [Number(values.range.start), Number(values.range.end)];
             } else if (values.type === 'options' && values.options) {
                 newBetData.options = values.options.map(o => o.value);
             }
@@ -291,14 +260,14 @@ export default function AdminPage() {
                                                     <FormField control={form.control} name="range.start" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range Start</FormLabel>
-                                                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl>
+                                                            <FormControl><Input type="number" {...field} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="range.end" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range End</FormLabel>
-                                                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl>
+                                                            <FormControl><Input type="number" {...field} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
