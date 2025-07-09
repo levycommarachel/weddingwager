@@ -19,8 +19,11 @@ import { useUser } from "@/context/UserContext";
 import { useBets } from "@/context/BetContext";
 import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2 } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db, firebaseEnabled } from "@/lib/firebase";
+
 
 interface BetCardProps {
   bet: Bet;
@@ -44,8 +47,42 @@ export default function BetCard({ bet }: BetCardProps) {
   );
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-
+  const [winners, setWinners] = useState<{ nickname: string }[]>([]);
+  const [loadingWinners, setLoadingWinners] = useState(false);
+  
   const isClosed = bet.status !== 'open';
+  const isResolved = bet.status === 'resolved';
+
+  useEffect(() => {
+    if (isResolved && bet.winningOutcome !== undefined) {
+        const fetchWinners = async () => {
+            if (!firebaseEnabled || !db) return;
+            setLoadingWinners(true);
+            try {
+                const winnersQuery = query(
+                    collection(db, "wagers"),
+                    where("betId", "==", bet.id),
+                    where("outcome", "==", bet.winningOutcome)
+                );
+                const querySnapshot = await getDocs(winnersQuery);
+                const winnerData = querySnapshot.docs.map(doc => ({
+                    nickname: doc.data().nickname,
+                }));
+                setWinners(winnerData);
+            } catch (error) {
+                console.error("Error fetching winners:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Could not load winners',
+                });
+            } finally {
+                setLoadingWinners(false);
+            }
+        };
+        fetchWinners();
+    }
+}, [isResolved, bet.id, bet.winningOutcome, toast]);
+
 
   const handlePlaceBet = async () => {
     if (!userData) return;
@@ -94,7 +131,7 @@ export default function BetCard({ bet }: BetCardProps) {
 
   if (isClosed) {
     return (
-       <Card className="overflow-hidden shadow-lg bg-muted/30 border-dashed">
+       <Card className="overflow-hidden shadow-lg bg-muted/30 border-dashed flex flex-col">
             <CardHeader className="p-4 border-b">
                  <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">
@@ -105,7 +142,7 @@ export default function BetCard({ bet }: BetCardProps) {
                             <CardTitle className="font-headline text-xl leading-tight">{bet.question}</CardTitle>
                         </div>
                     </div>
-                     <Badge variant="secondary">Closed</Badge>
+                     <Badge variant="secondary">{isResolved ? "Resolved" : "Closed"}</Badge>
                 </div>
                  <div className="flex items-center gap-4 text-sm text-muted-foreground mt-3">
                     <div className="flex items-center gap-1">
@@ -114,16 +151,45 @@ export default function BetCard({ bet }: BetCardProps) {
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="p-6">
-                <div className="space-y-2">
-                    <Label className="font-bold text-base text-muted-foreground">Winning Outcome</Label>
-                    <div className="flex items-center gap-3 bg-background p-4 rounded-md border">
-                        <CheckCircle2 className="h-6 w-6 text-green-500" />
-                        <p className="text-xl font-bold text-foreground">
-                            {bet.winningOutcome}
-                        </p>
+            <CardContent className="p-6 flex-grow">
+                 {isResolved ? (
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="font-bold text-base text-muted-foreground">Winning Outcome</Label>
+                            <div className="flex items-center gap-3 bg-background p-4 rounded-md border">
+                                <CheckCircle2 className="h-6 w-6 text-green-500" />
+                                <p className="text-xl font-bold text-foreground">
+                                    {String(bet.winningOutcome)}
+                                </p>
+                            </div>
+                        </div>
+                         <div className="space-y-2">
+                            <Label className="font-bold text-base text-muted-foreground flex items-center gap-2">
+                                <Trophy className="h-5 w-5 text-amber-500" />
+                                Winners
+                            </Label>
+                            <div className="min-h-[28px] pt-1">
+                                {loadingWinners ? (
+                                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                ) : winners.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {winners.map((winner, index) => (
+                                            <Badge key={index} variant="outline" className="font-normal bg-background">
+                                                {winner.nickname}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">There were no winners.</p>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
+                 ) : (
+                    <div className="text-center text-muted-foreground h-full flex items-center justify-center">
+                        <p>This bet is closed for new wagers. Results are pending.</p>
+                    </div>
+                 )}
             </CardContent>
         </Card>
     );
