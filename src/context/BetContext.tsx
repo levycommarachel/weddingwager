@@ -4,8 +4,8 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, deleteDoc, collectionGroup } from 'firebase/firestore';
-import type { Bet, Wager, Parlay, ParlayLeg } from '@/types';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, deleteDoc, collectionGroup, FieldValue } from 'firebase/firestore';
+import type { Bet, Wager, Parlay, ParlayLeg, Timestamp } from '@/types';
 import { useUser } from './UserContext';
 
 interface BetContextType {
@@ -106,7 +106,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const seedInitialBets = async () => {
-    if (!firebaseEnabled || !db) return;
+    if (!db) {
+        showFirebaseDisabledToast();
+        return;
+    }
     try {
       const betsCollectionRef = collection(db, 'bets');
       const querySnapshot = await getDocs(query(betsCollectionRef));
@@ -155,7 +158,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
 
   const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
-    if (!firebaseEnabled || !db) { showFirebaseDisabledToast(); return; }
+    if (!db) {
+        showFirebaseDisabledToast();
+        throw new Error("Firebase is not configured.");
+    }
     try {
       await addDoc(collection(db, 'bets'), {
         ...betData, pool: 0, status: 'open', createdAt: serverTimestamp(),
@@ -168,10 +174,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const placeBet = async (betId: string, outcome: string | number, amount: number) => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!user) throw new Error("User not authenticated.");
+    if (!db) {
         showFirebaseDisabledToast();
-        if (!user) throw new Error("User not authenticated");
-        return;
+        throw new Error("Firebase is not configured.");
     }
 
     const wagerId = `${user.uid}_${betId}`;
@@ -215,10 +221,12 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const placeParlay = async (legs: ParlayLeg[], wager: number, payoutMultiplier: number, potentialPayout: number) => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!user) throw new Error("User not authenticated.");
+    if (!db) {
       showFirebaseDisabledToast();
-      throw new Error("User not authenticated.");
+      throw new Error("Firebase is not configured.");
     }
+
     const userRef = doc(db, "users", user.uid);
     const parlayRef = doc(collection(db, "parlays"));
 
@@ -231,7 +239,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
         transaction.update(userRef, { balance: increment(-wager) });
 
-        const newParlay = {
+        const newParlayData = {
             userId: user.uid,
             nickname: userDoc.data().nickname,
             wager,
@@ -243,15 +251,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
             resolvedLegs: {},
             createdAt: serverTimestamp(),
         };
-        transaction.set(parlayRef, newParlay);
+        transaction.set(parlayRef, newParlayData);
     });
   }
 
   const updateWager = async (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!user) throw new Error("User not authenticated");
+    if (!db) {
         showFirebaseDisabledToast();
-        if (!user) throw new Error("User not authenticated");
-        return;
+        throw new Error("Firebase is not configured.");
     }
 
     const wagerRef = doc(db, "wagers", wagerId);
@@ -289,9 +297,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateParlay = async (parlayId: string, newLegs: ParlayLeg[], newWager: number) => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!user) throw new Error("User not authenticated.");
+    if (!db) {
         showFirebaseDisabledToast();
-        throw new Error("User not authenticated.");
+        throw new Error("Firebase is not configured.");
     }
 
     const parlayRef = doc(db, "parlays", parlayId);
@@ -351,27 +360,29 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const settleBet = async (betId: string, winningOutcome: string | number) => {
-    if (!firebaseEnabled || !db) { showFirebaseDisabledToast(); return; }
+    if (!db) {
+        showFirebaseDisabledToast();
+        return;
+    }
     
     // Settle single wagers
-    await settleSingleWagers(betId, winningOutcome);
+    await settleSingleWagers(betId, winningOutcome, db);
 
     // Settle relevant parlays
-    await checkAndSettleParlays(betId, winningOutcome);
+    await checkAndSettleParlays(betId, winningOutcome, db);
   };
 
-  const settleSingleWagers = async (betId: string, winningOutcome: string | number) => {
-    if (!db) return;
+  const settleSingleWagers = async (betId: string, winningOutcome: string | number, db: Firestore) => {
      try {
       const betRef = doc(db, "bets", betId);
       const wagersQuery = query(collection(db, "wagers"), where("betId", "==", betId));
 
-      const betDoc = await getDoc(betRef);
-      if (!betDoc.exists() || betDoc.data().status !== 'open') {
-        throw new Error("Bet is not open or does not exist.");
-      }
-      
       await runTransaction(db, async (transaction) => {
+        const betDoc = await transaction.get(betRef);
+        if (!betDoc.exists() || betDoc.data().status !== 'open') {
+            throw new Error("Bet is not open or does not exist.");
+        }
+        
         const wagersSnapshot = await getDocs(wagersQuery);
 
         const betPool = betDoc.data()!.pool;
@@ -420,9 +431,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
   }
 
-  const checkAndSettleParlays = async (settledBetId: string, winningOutcome: string | number) => {
-      if (!db) return;
-
+  const checkAndSettleParlays = async (settledBetId: string, winningOutcome: string | number, db: Firestore) => {
       const parlaysQuery = query(collection(db, "parlays"), where("status", "==", "open"), where("legIds", "array-contains", settledBetId));
       const parlaysSnapshot = await getDocs(parlaysQuery);
 
@@ -466,7 +475,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
                       }
                   }
 
-                  const updateData: any = { resolvedLegs: updatedResolvedLegs };
+                  const updateData: Partial<Parlay> & { resolvedAt?: FieldValue } = { resolvedLegs: updatedResolvedLegs };
+
                   if (parlayStatus !== parlay.status) {
                       updateData.status = parlayStatus;
                       updateData.resolvedAt = serverTimestamp();
@@ -496,3 +506,5 @@ export const useBets = () => {
   }
   return context;
 };
+
+    
