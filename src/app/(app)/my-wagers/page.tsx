@@ -69,7 +69,7 @@ function WagerCard({ wager, bet }: { wager: Wager, bet: Bet }) {
                     </div>
                 )}
             </CardContent>
-            {isResolved && hasPayoutInfo && (
+            {isResolved && hasPayoutInfo && ResultIcon && (
                 <>
                 <Separator />
                 <CardFooter className="p-4 bg-muted/30">
