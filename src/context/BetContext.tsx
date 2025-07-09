@@ -4,19 +4,21 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment } from 'firebase/firestore';
-import type { Bet, Wager, Timestamp } from '@/types';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, orderBy } from 'firebase/firestore';
+import type { Bet, Wager, Parlay, ParlayLeg, Timestamp } from '@/types';
 import { useUser } from './UserContext';
 
 interface BetContextType {
   bets: Bet[];
   myWagers: Wager[];
+  myParlays: Parlay[];
   loading: boolean;
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
   seedInitialBets: () => Promise<void>;
   updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
+  createParlay: (legs: ParlayLeg[], amount: number) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -24,9 +26,10 @@ const BetContext = createContext<BetContextType | undefined>(undefined);
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [myWagers, setMyWagers] = useState<Wager[]>([]);
+  const [myParlays, setMyParlays] = useState<Parlay[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const { user } = useUser();
+  const { user, userData } = useUser();
   
   // Listen for all bets
   useEffect(() => {
@@ -35,14 +38,12 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    const q = query(collection(db, "bets"));
+    const q = query(collection(db, "bets"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
         } as Bet));
-
-        betsData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
         setBets(betsData);
         setLoading(false);
@@ -60,16 +61,37 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         setMyWagers([]);
         return;
     }
-    const q = query(collection(db, "wagers"), where("userId", "==", user.uid));
+    const q = query(collection(db, "wagers"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const wagersData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Wager));
-        wagersData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
         setMyWagers(wagersData);
     }, (error) => {
         console.error("Wager listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Listen for user's parlays
+  useEffect(() => {
+    if (!firebaseEnabled || !db || !user) {
+        setMyParlays([]);
+        return;
+    }
+    const parlaysCollectionRef = collection(db, `users/${user.uid}/parlays`);
+    const q = query(parlaysCollectionRef, orderBy("createdAt", "desc"));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const parlaysData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Parlay));
+        setMyParlays(parlaysData);
+    }, (error) => {
+        console.error("Parlay listener error:", error);
     });
 
     return () => unsubscribe();
@@ -197,6 +219,48 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const createParlay = async (legs: ParlayLeg[], amount: number) => {
+    if (!user || !userData) throw new Error("User not authenticated.");
+    const currentDb = db;
+    if (!currentDb) {
+      showFirebaseDisabledToast();
+      throw new Error("Firebase is not configured.");
+    }
+
+    if (legs.length < 2) {
+      throw new Error("A parlay must have at least 2 legs.");
+    }
+    if (amount <= 0) {
+      throw new Error("Wager amount must be positive.");
+    }
+
+    const userRef = doc(currentDb, "users", user.uid);
+    const parlaysRef = collection(currentDb, `users/${user.uid}/parlays`);
+
+    await runTransaction(currentDb, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists() || userDoc.data().balance < amount) {
+        throw new Error("Insufficient balance.");
+      }
+      
+      const potentialPayout = Math.floor(amount * Math.pow(2, legs.length));
+
+      transaction.update(userRef, { balance: increment(-amount) });
+      
+      const newParlayRef = doc(parlaysRef);
+      transaction.set(newParlayRef, {
+        userId: user.uid,
+        nickname: userData.nickname,
+        legs,
+        amount,
+        potentialPayout,
+        status: 'open',
+        resolvedLegs: {},
+        createdAt: serverTimestamp(),
+      });
+    });
+  };
+
   const updateWager = async (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => {
     if (!user) throw new Error("User not authenticated");
     const currentDb = db;
@@ -247,28 +311,26 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      // Query for all wagers related to the bet *before* the transaction.
-      const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
-      const wagersSnapshot = await getDocs(wagersQuery);
-      const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
-
       const betRef = doc(currentDb, "bets", betId);
       
       await runTransaction(currentDb, async (transaction) => {
-        // Read the bet document *inside* the transaction to ensure atomicity.
         const betDoc = await transaction.get(betRef);
         if (!betDoc.exists() || betDoc.data().status !== 'open') {
           throw new Error("Bet is not open or does not exist.");
         }
 
         const betPool = betDoc.data()!.pool;
+        
+        // This query needs to happen *outside* the transaction if it's too complex,
+        // but for wagers on a single bet, it's fine to query inside.
+        const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
+        const wagersSnapshot = await getDocs(wagersQuery); // Use getDocs with query, not transaction.get
+        const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
 
-        // Process wagers with the data fetched before the transaction.
         const winningWagers = wagers.filter(wager => String(wager.outcome) === String(winningOutcome));
         const losingWagers = wagers.filter(wager => String(wager.outcome) !== String(winningOutcome));
         const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
         
-        // Update the bet status.
         transaction.update(betRef, {
           status: "resolved", 
           winningOutcome: String(winningOutcome),
@@ -278,7 +340,6 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         if (winningWagers.length > 0 && totalWinningWagerAmount > 0) {
           const payoutRatio = betPool / totalWinningWagerAmount;
           
-          // Update winning wagers and user balances.
           for (const wager of winningWagers) {
             const userRef = doc(currentDb, "users", wager.userId);
             const wagerRef = doc(currentDb, "wagers", wager.id);
@@ -287,14 +348,12 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
             transaction.update(wagerRef, { payout });
           }
 
-          // Update losing wagers.
           for (const wager of losingWagers) {
             const wagerRef = doc(currentDb, "wagers", wager.id);
             transaction.update(wagerRef, { payout: 0 });
           }
           
         } else {
-          // No winners, so refund all wagers.
           for (const wager of wagers) {
               const userRef = doc(currentDb, "users", wager.userId);
               const wagerRef = doc(currentDb, "wagers", wager.id);
@@ -303,6 +362,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
               transaction.update(wagerRef, { payout: refundAmount });
           }
         }
+        // TODO: Add logic here to check for and update any parlays that include this bet.
       });
 
       toast({ title: "Bet Settled!", description: `Payouts have been distributed.` });
@@ -316,7 +376,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets }}>
+    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay }}>
       {children}
     </BetContext.Provider>
   );

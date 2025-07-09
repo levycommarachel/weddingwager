@@ -7,7 +7,7 @@ import { useUser } from '@/context/UserContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil, Layers } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
-import type { Bet, Wager } from '@/types';
+import type { Bet, Wager, Parlay } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () => void }) {
@@ -107,8 +108,78 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     );
 }
 
+function ParlayCard({ parlay }: { parlay: Parlay }) {
+  const isResolved = parlay.status === 'resolved';
+  
+  let resultText, resultColor, StatusPill;
+
+  if (isResolved) {
+      const isWinner = parlay.payout !== undefined && parlay.payout > 0;
+      if (isWinner) {
+          resultText = `+${(parlay.payout! - parlay.amount).toLocaleString()} Pts`;
+          resultColor = 'text-green-500';
+          StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
+      } else {
+          resultText = `-${parlay.amount.toLocaleString()} Pts`;
+          resultColor = 'text-destructive';
+          StatusPill = <Badge variant="destructive">Lost</Badge>;
+      }
+  } else {
+    StatusPill = <Badge variant="secondary">Open</Badge>;
+  }
+
+  return (
+    <Card className="flex flex-col">
+      <CardHeader>
+        <div className="flex justify-between items-start">
+            <CardTitle className="font-headline text-xl flex items-center gap-2">
+                <Layers className="h-5 w-5"/>
+                {parlay.legs.length}-Leg Parlay
+            </CardTitle>
+            {StatusPill}
+        </div>
+        <CardDescription>
+            Wagered: <span className="font-semibold text-foreground">{parlay.amount.toLocaleString()} Pts</span>
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow space-y-4">
+        <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="item-1">
+                <AccordionTrigger>View Legs</AccordionTrigger>
+                <AccordionContent>
+                    <ul className="space-y-2 text-sm">
+                        {parlay.legs.map((leg, index) => (
+                            <li key={index} className="p-2 bg-muted/50 rounded-md">
+                                <p className="font-medium text-muted-foreground">{leg.question}</p>
+                                <p>Your Pick: <span className="font-bold text-foreground">{String(leg.outcome)}</span></p>
+                            </li>
+                        ))}
+                    </ul>
+                </AccordionContent>
+            </AccordionItem>
+        </Accordion>
+      </CardContent>
+      {isResolved ? (
+            <CardFooter className="p-4 bg-muted/30">
+                 <div className={`font-bold text-lg ${resultColor}`}>{resultText}</div>
+            </CardFooter>
+      ) : (
+        <CardFooter className="p-4 bg-muted/30">
+            <div className="flex items-center justify-between w-full">
+                <div className="text-sm">
+                    <span className="text-muted-foreground">Potential Payout: </span>
+                    <span className="font-bold">{parlay.potentialPayout.toLocaleString()} Pts</span>
+                </div>
+            </div>
+        </CardFooter>
+      )}
+    </Card>
+  );
+}
+
+
 export default function MyWagersPage() {
-    const { myWagers, bets, loading: betsLoading, updateWager } = useBets();
+    const { myWagers, myParlays, bets, loading: betsLoading, updateWager } = useBets();
     const { user, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
@@ -227,10 +298,18 @@ export default function MyWagersPage() {
                             <Layers />
                             My Parlays
                         </h2>
-                         <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
-                            <p className="text-lg font-medium">You haven't placed any parlays yet.</p>
-                            <p>Use the Parlay Builder to get started!</p>
-                        </div>
+                         {myParlays.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                                {myParlays.map((parlay) => (
+                                    <ParlayCard key={parlay.id} parlay={parlay} />
+                                ))}
+                            </div>
+                         ) : (
+                            <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
+                                <p className="text-lg font-medium">You haven't placed any parlays yet.</p>
+                                <p>Use the Parlay Builder to get started!</p>
+                            </div>
+                         )}
                     </section>
                 </div>
             </div>
