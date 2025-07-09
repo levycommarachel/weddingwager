@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import React from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 export default function Header() {
   const { userData, logout } = useUser();
@@ -119,8 +120,11 @@ export default function Header() {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar>{userData.nickname.charAt(0).toUpperCase()}</Avatar>
+                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        {userData.photoURL && <AvatarImage src={userData.photoURL} alt={userData.nickname} />}
+                        <AvatarFallback>{userData.nickname?.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
@@ -150,9 +154,3 @@ export default function Header() {
     </header>
   );
 }
-
-const Avatar = ({ children }: { children: React.ReactNode }) => (
-  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold">
-    {children}
-  </div>
-)

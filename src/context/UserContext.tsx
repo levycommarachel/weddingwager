@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { auth, db, firebaseEnabled } from '@/lib/firebase';
-import { onAuthStateChanged, signInAnonymously, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import type { UserData } from '@/types';
 
@@ -10,7 +11,7 @@ interface UserContextType {
   user: FirebaseUser | null;
   userData: UserData | null;
   loading: boolean;
-  login: (nickname: string) => Promise<void>;
+  signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -58,26 +59,31 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [user]);
 
-  const login = async (nickname: string) => {
+  const signInWithGoogle = async (): Promise<{ isNewUser: boolean }> => {
     if (!firebaseEnabled || !auth || !db) {
       throw new Error("Firebase not configured");
     }
     
     try {
-        const userCredential = await signInAnonymously(auth);
-        const userRef = doc(db, 'users', userCredential.user.uid);
+        const provider = new GoogleAuthProvider();
+        const userCredential = await signInWithPopup(auth, provider);
+        const loggedInUser = userCredential.user;
+        const userRef = doc(db, 'users', loggedInUser.uid);
         const userDoc = await getDoc(userRef);
 
         if (!userDoc.exists()) {
           await setDoc(userRef, {
-            nickname,
+            nickname: loggedInUser.displayName || 'New Player',
+            photoURL: loggedInUser.photoURL,
             balance: 1000, // Starting balance
             isAdmin: false,
             lastActive: serverTimestamp(),
           });
+          return { isNewUser: true };
         }
+        return { isNewUser: false };
     } catch (error: any) {
-        console.error("Firebase login error:", error);
+        console.error("Google Sign-In error:", error);
         throw error; // re-throw to be caught by the UI form
     }
   };
@@ -94,7 +100,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <UserContext.Provider value={{ user, userData, loading, login, logout }}>
+    <UserContext.Provider value={{ user, userData, loading, signInWithGoogle, logout }}>
       {children}
     </UserContext.Provider>
   );

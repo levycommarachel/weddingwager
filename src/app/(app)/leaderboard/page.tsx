@@ -16,7 +16,8 @@ import { useUser } from "@/context/UserContext";
 import { db, firebaseEnabled } from "@/lib/firebase";
 import { collection, query, onSnapshot, orderBy } from "firebase/firestore";
 import type { UserData } from "@/types";
-import Image from "next/image";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 interface LeaderboardUser extends UserData {
     id: string;
@@ -103,7 +104,10 @@ export default function LeaderboardPage() {
                     <TableCell className="font-bold text-lg">{player.rank}</TableCell>
                     <TableCell>
                         <div className="flex items-center gap-3">
-                           <Image src={`https://placehold.co/40x40.png`} alt={player.nickname} width={40} height={40} className="rounded-full" data-ai-hint="person avatar" />
+                            <Avatar className="h-10 w-10">
+                                {player.photoURL && <AvatarImage src={player.photoURL} alt={player.nickname} />}
+                                <AvatarFallback>{player.nickname?.charAt(0).toUpperCase()}</AvatarFallback>
+                           </Avatar>
                             <span className="font-medium">{player.nickname}</span>
                         </div>
                     </TableCell>

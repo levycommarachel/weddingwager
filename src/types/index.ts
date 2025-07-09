@@ -4,6 +4,7 @@ import type { Timestamp } from "firebase/firestore";
 // Stored in /users/{uid}
 export interface UserData {
   nickname: string;
+  photoURL?: string;
   balance: number;
   isAdmin: boolean;
   lastActive: Timestamp;
