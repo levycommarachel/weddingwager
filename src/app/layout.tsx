@@ -10,9 +10,6 @@ export const metadata: Metadata = {
   description: 'Place your bets on the big day!',
 };
 
-// This is a server component, so it can access server-side environment variables
-const firebaseConfig = process.env.FIREBASE_WEBAPP_CONFIG;
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -25,14 +22,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
-        {/* Inject the Firebase config from the server into a script tag */}
-        {firebaseConfig ? (
-            <script
-              id="firebase-config"
-              type="application/json"
-              dangerouslySetInnerHTML={{ __html: firebaseConfig }}
-            />
-          ) : null}
       </head>
       <body className="font-body antialiased">
         <UserProvider>

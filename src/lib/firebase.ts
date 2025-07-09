@@ -8,34 +8,26 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let firebaseEnabled = false;
 
-// This function runs on the client and reads the config injected by the server layout
-function getFirebaseConfig(): FirebaseOptions | null {
-  // Ensure this code only runs in the browser
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const configElement = document.getElementById('firebase-config');
-  if (!configElement?.textContent) {
-    console.warn("Firebase config script not found. Firebase will be disabled.");
-    return null;
-  }
-
-  try {
-    return JSON.parse(configElement.textContent);
-  } catch (e) {
-    console.error("Failed to parse Firebase config:", e);
-    return null;
-  }
-}
-
-const firebaseConfig = getFirebaseConfig();
-
-// Initialize Firebase if the config was successfully loaded
-if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
+// This code runs on the client, so we can check for the public env vars
+if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
   firebaseEnabled = true;
+
+  const firebaseConfig: FirebaseOptions = {
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  };
+
   try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    // Initialize Firebase only if it hasn't been already
+    if (!getApps().length) {
+      app = initializeApp(firebaseConfig);
+    } else {
+      app = getApp();
+    }
     auth = getAuth(app);
     db = getFirestore(app);
   } catch (e) {
@@ -43,10 +35,10 @@ if (firebaseConfig && firebaseConfig.apiKey && firebaseConfig.projectId) {
     firebaseEnabled = false;
   }
 } else {
-  if (typeof window !== 'undefined') {
-    // Only log this warning in the browser
-    console.warn("Firebase is not configured. The app may run in a limited, offline mode.");
-  }
+    // This warning will show in the browser console if the env vars are missing
+    if (typeof window !== 'undefined') {
+        console.warn("Firebase environment variables not found. Firebase features will be disabled.");
+    }
 }
 
 export { db, auth, firebaseEnabled };
