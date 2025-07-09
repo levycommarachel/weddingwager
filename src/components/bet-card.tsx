@@ -67,15 +67,20 @@ export default function BetCard({ bet }: BetCardProps) {
             if (!firebaseEnabled || !db) return;
             setLoadingWinners(true);
             try {
-                const winnersQuery = query(
+                // Query only by betId to avoid needing a composite index
+                const wagersQuery = query(
                     collection(db, "wagers"),
-                    where("betId", "==", bet.id),
-                    where("outcome", "==", String(bet.winningOutcome))
+                    where("betId", "==", bet.id)
                 );
-                const querySnapshot = await getDocs(winnersQuery);
-                const winnerData = querySnapshot.docs.map(doc => ({
-                    nickname: doc.data().nickname,
-                }));
+                const querySnapshot = await getDocs(wagersQuery);
+
+                // Filter for winners on the client side
+                const winnerData = querySnapshot.docs
+                    .filter(doc => String(doc.data().outcome) === String(bet.winningOutcome))
+                    .map(doc => ({
+                        nickname: doc.data().nickname,
+                    }));
+                
                 setWinners(winnerData);
             } catch (error) {
                 console.error("Error fetching winners:", error);

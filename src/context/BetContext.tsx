@@ -61,12 +61,21 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         setMyWagers([]);
         return;
     }
-    const q = query(collection(db, "wagers"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
+    // Remove orderBy from query to avoid needing a composite index
+    const q = query(collection(db, "wagers"), where("userId", "==", user.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const wagersData = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         } as Wager));
+        
+        // Sort on the client-side
+        wagersData.sort((a, b) => {
+            const dateA = a.createdAt?.toMillis() || 0;
+            const dateB = b.createdAt?.toMillis() || 0;
+            return dateB - dateA; // descending
+        });
+
         setMyWagers(wagersData);
     }, (error) => {
         console.error("Wager listener error:", error);
@@ -321,10 +330,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
         const betPool = betDoc.data()!.pool;
         
-        // This query needs to happen *outside* the transaction if it's too complex,
-        // but for wagers on a single bet, it's fine to query inside.
         const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
-        const wagersSnapshot = await getDocs(wagersQuery); // Use getDocs with query, not transaction.get
+        const wagersSnapshot = await getDocs(wagersQuery); 
         const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
 
         const winningWagers = wagers.filter(wager => String(wager.outcome) === String(winningOutcome));
