@@ -62,11 +62,12 @@ export default function LoginPage() {
                 description: 'You closed the sign-in window. Please try again.',
             });
        } else if (error.code === 'auth/unauthorized-domain') {
+            const hostname = window.location.hostname;
             toast({
                 variant: 'destructive',
-                title: 'Unauthorized Domain',
-                description: 'This domain has not been authorized. You must add this app\'s URL to the "Authorized domains" list in your Firebase project\'s Authentication settings.',
-                duration: 9000,
+                title: 'Action Required: Authorize Your Domain',
+                description: `Firebase has blocked login from this URL. To fix this, you must add "${hostname}" to the "Authorized domains" list in your Firebase project's Authentication settings.`,
+                duration: 15000,
             });
        } else if (error?.code === 'auth/configuration-not-found') {
             toast({
