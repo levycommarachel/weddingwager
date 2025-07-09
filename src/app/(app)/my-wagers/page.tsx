@@ -5,9 +5,9 @@ import { useState, useEffect } from "react";
 import { useBets } from '@/context/BetContext';
 import { useUser } from '@/context/UserContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil, Layers, Hourglass, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
-import type { Bet, Wager, Parlay, ParlayLeg } from '@/types';
+import type { Bet, Wager } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 
 
 function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () => void }) {
@@ -108,95 +107,10 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     );
 }
 
-function ParlayLegStatus({ leg, parlay }: { leg: ParlayLeg, parlay: Parlay }) {
-    const legStatus = parlay.resolvedLegs[leg.betId];
-
-    if (!legStatus) {
-        return <span title="Pending"><Hourglass className="h-4 w-4 text-muted-foreground" /></span>;
-    }
-    if (legStatus === 'won') {
-        return <span title="Won"><CheckCircle2 className="h-4 w-4 text-green-500" /></span>;
-    }
-    return <span title="Lost"><XCircle className="h-4 w-4 text-destructive" /></span>;
-}
-
-function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; }) {
-    let StatusPill, ResultIcon, resultColor, resultText;
-    const isOpen = parlay.status === 'open';
-
-    if (parlay.status !== 'open' && typeof parlay.payout === 'number') {
-        const profit = parlay.payout - parlay.wager;
-        if (parlay.status === 'won') {
-             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
-            ResultIcon = TrendingUp;
-            resultColor = 'text-green-500';
-            resultText = `+${profit.toLocaleString()} Pts`;
-        } else {
-             StatusPill = <Badge variant="destructive">Lost</Badge>;
-            ResultIcon = TrendingDown;
-            resultColor = 'text-destructive';
-            resultText = `${profit.toLocaleString()} Pts`;
-        }
-    } else {
-        StatusPill = <Badge variant="secondary">Open</Badge>;
-    }
-
-    return (
-        <Card className="flex flex-col">
-            <CardHeader>
-                <div className="flex justify-between items-start gap-4">
-                    <CardTitle className="font-headline text-xl flex items-center gap-2 flex-1">
-                        <Layers /> {parlay.legs.length}-Leg Parlay
-                    </CardTitle>
-                     <div className="flex items-center gap-1 flex-shrink-0">
-                        {StatusPill}
-                        {isOpen && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                        )}
-                    </div>
-                </div>
-                <CardDescription>
-                    Wager: <span className="font-semibold text-foreground">{parlay.wager.toLocaleString()} Pts</span>
-                    <span className="mx-2">|</span>
-                    Potential Payout: <span className="font-semibold text-foreground">{parlay.potentialPayout.toLocaleString()} Pts</span>
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow space-y-3">
-                <p className="text-sm font-medium text-muted-foreground">Legs</p>
-                <ul className="space-y-3">
-                    {parlay.legs.map(leg => (
-                        <li key={leg.betId} className="flex items-start gap-3 text-sm p-2 rounded-md bg-accent/30 border">
-                            <ParlayLegStatus leg={leg} parlay={parlay} />
-                            <div className="flex-1">
-                                <p className="text-muted-foreground leading-tight">{leg.question}</p>
-                                <p>Your Pick: <span className="font-semibold text-foreground">{leg.chosenOutcome}</span></p>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            </CardContent>
-            {parlay.status !== 'open' && ResultIcon && typeof parlay.payout === 'number' && (
-                 <>
-                    <Separator />
-                    <CardFooter className="p-4 bg-muted/30">
-                        <div className="flex items-center gap-2">
-                            <ResultIcon className={`h-5 w-5 ${resultColor}`} />
-                            <span className={`font-bold text-lg ${resultColor}`}>{resultText}</span>
-                        </div>
-                    </CardFooter>
-                </>
-            )}
-        </Card>
-    )
-}
-
 export default function MyWagersPage() {
-    const { myWagers, myParlays, bets, loading: betsLoading, updateWager } = useBets();
+    const { myWagers, bets, loading: betsLoading, updateWager } = useBets();
     const { user, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
-    const router = useRouter();
     
     const [editingWager, setEditingWager] = useState<{ wager: Wager; bet: Bet } | null>(null);
     const [newAmount, setNewAmount] = useState<number | string>('');
@@ -261,10 +175,6 @@ export default function MyWagersPage() {
             setIsSubmitting(false);
         }
     };
-    
-    const handleEditParlay = (parlayId: string) => {
-        router.push(`/parlay-builder?parlayId=${parlayId}`);
-    };
 
     if (loading) {
         return (
@@ -284,7 +194,7 @@ export default function MyWagersPage() {
             <div className="container mx-auto py-8 px-4">
                 <div className="text-center mb-12">
                     <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">My Wagers</h1>
-                    <p className="text-muted-foreground mt-2 text-lg">Track your single bets and parlays.</p>
+                    <p className="text-muted-foreground mt-2 text-lg">Track your single bets.</p>
                 </div>
                 
                 <div className="space-y-12">
@@ -306,31 +216,8 @@ export default function MyWagersPage() {
                             </div>
                         ) : (
                             <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
-                                <p className="text-lg font-medium">You haven't placed any single wagers yet.</p>
+                                <p className="text-lg font-medium">You haven't placed any wagers yet.</p>
                                 <p>Head to the "All Wagers" page to get in on the action!</p>
-                            </div>
-                        )}
-                    </section>
-                    
-                    <section>
-                        <h2 className="font-headline text-3xl md:text-4xl font-bold tracking-tight mb-6 flex items-center gap-3">
-                            <Layers />
-                            Parlays
-                        </h2>
-                        {myParlays.length > 0 ? (
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                                {myParlays.map((parlay) => (
-                                    <ParlayCard 
-                                        key={parlay.id} 
-                                        parlay={parlay} 
-                                        onEdit={() => handleEditParlay(parlay.id)}
-                                    />
-                                ))}
-                            </div>
-                        ) : (
-                             <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
-                                <p className="text-lg font-medium">You haven't placed any parlays yet.</p>
-                                <p>Visit the "Parlay Builder" to create one!</p>
                             </div>
                         )}
                     </section>
