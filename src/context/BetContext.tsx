@@ -231,7 +231,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
         transaction.update(userRef, { balance: increment(-wager) });
 
-        const newParlay: Omit<Parlay, 'id'> = {
+        const newParlay = {
             userId: user.uid,
             nickname: userDoc.data().nickname,
             wager,
