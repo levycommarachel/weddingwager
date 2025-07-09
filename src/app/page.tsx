@@ -65,7 +65,7 @@ export default function LoginPage() {
             toast({
                 variant: 'destructive',
                 title: 'Unauthorized Domain',
-                description: 'This domain has not been authorized. Please add it to your Firebase project settings.',
+                description: 'This domain has not been authorized. You must add this app\'s URL to the "Authorized domains" list in your Firebase project\'s Authentication settings.',
                 duration: 9000,
             });
        } else if (error?.code === 'auth/configuration-not-found') {
