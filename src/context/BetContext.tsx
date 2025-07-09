@@ -215,20 +215,27 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
           batch.update(userRef, { balance: increment(payout) });
           batch.update(wagerRef, { payout });
         }
-      }
 
-      for (const wager of losingWagers) {
-        const wagerRef = doc(db, "wagers", wager.id);
-        batch.update(wagerRef, { payout: 0 });
-      }
-
-      await batch.commit();
-
-      if (winningWagers.length > 0) {
+        for (const wager of losingWagers) {
+          const wagerRef = doc(db, "wagers", wager.id);
+          batch.update(wagerRef, { payout: 0 });
+        }
+        
+        await batch.commit();
         toast({ title: "Bet Settled!", description: `Payouts distributed to ${winningWagers.length} winner(s).` });
       } else {
-        toast({ title: "Bet Settled!", description: "There were no winners. The pool remains." });
+        // No winners, so refund all wagers.
+        for (const wager of wagers) {
+            const userRef = doc(db, "users", wager.userId);
+            const wagerRef = doc(db, "wagers", wager.id);
+            const refundAmount = wager.amount;
+            batch.update(userRef, { balance: increment(refundAmount) });
+            batch.update(wagerRef, { payout: refundAmount });
+        }
+        await batch.commit();
+        toast({ title: "Bet Settled!", description: "There were no winners. All wagers have been refunded." });
       }
+
     } catch (error) {
       console.error("Error settling bet: ", error);
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";

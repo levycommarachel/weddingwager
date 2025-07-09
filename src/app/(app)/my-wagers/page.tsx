@@ -18,21 +18,23 @@ function WagerCard({ wager, bet }: { wager: Wager, bet: Bet }) {
     let StatusPill, ResultIcon, resultColor, resultText;
 
     if (isResolved && hasPayoutInfo) {
-        if (wager.payout > wager.amount) {
+        const profit = wager.payout - wager.amount;
+
+        if (profit > 0) { // Net gain
             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
             ResultIcon = TrendingUp;
             resultColor = 'text-green-500';
-            resultText = `+${(wager.payout - wager.amount).toLocaleString()} Pts`;
-        } else if (wager.payout > 0) {
-            StatusPill = <Badge className="bg-sky-100 dark:bg-sky-900 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300">Payout</Badge>;
+            resultText = `+${profit.toLocaleString()} Pts`;
+        } else if (wager.payout === wager.amount) { // Push or refund
+            StatusPill = <Badge className="bg-sky-100 dark:bg-sky-900 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300">Refund</Badge>;
             ResultIcon = CircleHelp;
             resultColor = 'text-sky-500';
-            resultText = `+${(wager.payout - wager.amount).toLocaleString()} Pts`;
-        } else {
+            resultText = `+0 Pts`;
+        } else { // Net loss (payout is 0, or payout is less than amount wagered)
             StatusPill = <Badge variant="destructive">Lost</Badge>;
             ResultIcon = TrendingDown;
             resultColor = 'text-destructive';
-            resultText = `-${wager.amount.toLocaleString()} Pts`;
+            resultText = `${profit.toLocaleString()} Pts`;
         }
     } else if (isResolved) {
         StatusPill = <Badge variant="outline">Resolved</Badge>;
