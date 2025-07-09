@@ -1,3 +1,4 @@
+
 import type { Timestamp } from "firebase/firestore";
 
 // Stored in /users/{uid}
@@ -32,4 +33,5 @@ export interface Wager {
     amount: number;
     outcome: string | number; // What the user bet on
     createdAt: Timestamp;
+    payout?: number; // Calculated on settlement
 }

@@ -10,6 +10,7 @@ import { useUser } from './UserContext';
 
 interface BetContextType {
   bets: Bet[];
+  myWagers: Wager[];
   loading: boolean;
   addBet: (bet: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => Promise<void>;
   placeBet: (betId: string, outcome: string | number, amount: number) => Promise<void>;
@@ -21,6 +22,7 @@ const BetContext = createContext<BetContextType | undefined>(undefined);
 
 export const BetProvider = ({ children }: { children: ReactNode }) => {
   const [bets, setBets] = useState<Bet[]>([]);
+  const [myWagers, setMyWagers] = useState<Wager[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useUser();
@@ -50,6 +52,28 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, [toast]);
+
+  // Listen for user's wagers
+  useEffect(() => {
+    if (!firebaseEnabled || !db || !user) {
+        setMyWagers([]);
+        return;
+    }
+    const q = query(collection(db, "wagers"), where("userId", "==", user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+        const wagersData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Wager));
+        wagersData.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+        setMyWagers(wagersData);
+    }, (error) => {
+        console.error("Wager listener error:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
 
   const showFirebaseDisabledToast = () => {
     toast({ variant: 'destructive', title: 'Feature Disabled', description: 'Firebase is not configured. Please check your setup.' });
@@ -172,6 +196,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
       
       const winningWagers = wagers.filter(wager => wager.outcome == winningOutcome);
+      const losingWagers = wagers.filter(wager => wager.outcome != winningOutcome);
       const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
 
       const batch = writeBatch(db);
@@ -185,10 +210,18 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         
         for (const wager of winningWagers) {
           const userRef = doc(db, "users", wager.userId);
+          const wagerRef = doc(db, "wagers", wager.id);
           const payout = Math.floor(wager.amount * payoutRatio);
           batch.update(userRef, { balance: increment(payout) });
+          batch.update(wagerRef, { payout });
         }
       }
+
+      for (const wager of losingWagers) {
+        const wagerRef = doc(db, "wagers", wager.id);
+        batch.update(wagerRef, { payout: 0 });
+      }
+
       await batch.commit();
 
       if (winningWagers.length > 0) {
@@ -204,7 +237,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <BetContext.Provider value={{ bets, loading, addBet, placeBet, settleBet, seedInitialBets }}>
+    <BetContext.Provider value={{ bets, myWagers, loading, addBet, placeBet, settleBet, seedInitialBets }}>
       {children}
     </BetContext.Provider>
   );
