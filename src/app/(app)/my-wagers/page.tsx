@@ -112,12 +112,12 @@ function ParlayLegStatus({ leg, parlay }: { leg: ParlayLeg, parlay: Parlay }) {
     const legStatus = parlay.resolvedLegs[leg.betId];
 
     if (!legStatus) {
-        return <Hourglass className="h-4 w-4 text-muted-foreground" title="Pending" />;
+        return <span title="Pending"><Hourglass className="h-4 w-4 text-muted-foreground" /></span>;
     }
     if (legStatus === 'won') {
-        return <CheckCircle2 className="h-4 w-4 text-green-500" title="Won" />;
+        return <span title="Won"><CheckCircle2 className="h-4 w-4 text-green-500" /></span>;
     }
-    return <XCircle className="h-4 w-4 text-destructive" title="Lost" />;
+    return <span title="Lost"><XCircle className="h-4 w-4 text-destructive" /></span>;
 }
 
 function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; }) {
@@ -177,7 +177,7 @@ function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; })
                     ))}
                 </ul>
             </CardContent>
-            {parlay.status !== 'open' && ResultIcon && (
+            {parlay.status !== 'open' && ResultIcon && typeof parlay.payout === 'number' && (
                  <>
                     <Separator />
                     <CardFooter className="p-4 bg-muted/30">
