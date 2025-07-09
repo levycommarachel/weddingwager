@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain, Users, Clock, CakeSlice, Mic } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -37,40 +37,50 @@ const betFormSchema = z.object({
     end: z.string(),
   }).optional(),
   options: z.array(z.object({ value: z.string() })).optional(),
+}).refine((data) => {
+    // This is a workaround for a bug in react-hook-form where the refine
+    // function runs before the transform function, causing validation errors.
+    if (data.type === 'range' && data.range?.start && data.range?.end) {
+        return Number(data.range.start) < Number(data.range.end);
+    }
+    return true;
+}, {
+    message: 'Start must be less than end.',
+    path: ['range', 'end'],
+}).transform((data) => {
+    if (data.type === 'range' && data.range) {
+        return {
+            ...data,
+            range: {
+                start: Number(data.range.start),
+                end: Number(data.range.end)
+            }
+        }
+    }
+    return data;
 }).superRefine((data, ctx) => {
     if (data.type === 'range') {
         const startVal = data.range?.start;
         const endVal = data.range?.end;
 
-        if (startVal === undefined || startVal.trim() === '') {
+        if (startVal === undefined || String(startVal).trim() === '') {
             ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Start value is required.' });
         }
-        if (endVal === undefined || endVal.trim() === '') {
+        if (endVal === undefined || String(endVal).trim() === '') {
             ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'End value is required.' });
         }
 
-        // Only proceed if both values are present strings
-        if (startVal && startVal.trim() !== '' && endVal && endVal.trim() !== '') {
+        if (startVal && String(startVal).trim() !== '' && endVal && String(endVal).trim() !== '') {
             const startNum = Number(startVal);
             const endNum = Number(endVal);
-
             if (isNaN(startNum)) {
                 ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Must be a valid number.' });
             }
             if (isNaN(endNum)) {
                 ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'Must be a valid number.' });
             }
-            
-            if (!isNaN(startNum) && !isNaN(endNum) && startNum >= endNum) {
-                ctx.addIssue({
-                    code: 'custom',
-                    path: ['range', 'end'],
-                    message: 'Start must be less than end.',
-                });
-            }
         }
     }
-
     if (data.type === 'options') {
         if (!data.options || data.options.length < 2) {
              ctx.addIssue({
@@ -93,22 +103,25 @@ const betFormSchema = z.object({
             if(hasEmpty) return;
         }
     }
-}).transform((data) => {
-    // Transform string range values to numbers for use in onSubmit
-    if (data.type === 'range' && data.range) {
-        return {
-            ...data,
-            range: {
-                start: Number(data.range.start),
-                end: Number(data.range.end)
-            }
-        }
-    }
-    return data;
 });
 
 
 type BetFormInput = z.input<typeof betFormSchema>;
+
+const iconOptions = [
+    { value: 'Users', label: 'People', icon: Users },
+    { value: 'Clock', label: 'Time', icon: Clock },
+    { value: 'Mic', label: 'Speeches', icon: Mic },
+    { value: 'CakeSlice', label: 'Cake', icon: CakeSlice },
+    { value: 'Gift', label: 'Gifts', icon: Gift },
+    { value: 'Heart', label: 'Love', icon: Heart },
+    { value: 'Music', label: 'Music', icon: Music },
+    { value: 'Camera', label: 'Photos', icon: Camera },
+    { value: 'GlassWater', label: 'Drinks', icon: GlassWater },
+    { value: 'Mail', label: 'Invitations', icon: Mail },
+    { value: 'Sun', label: 'Weather (Sun)', icon: Sun },
+    { value: 'CloudRain', label: 'Weather (Rain)', icon: CloudRain },
+];
 
 export default function AdminPage() {
     const { bets, addBet, settleBet } = useBets();
@@ -233,13 +246,31 @@ export default function AdminPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
+                                        
                                         <FormField control={form.control} name="icon" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Icon Name</FormLabel>
-                                                <FormControl><Input placeholder="e.g., Mic (from lucide-react)" {...field} /></FormControl>
+                                                <FormLabel>Icon</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select an icon" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {iconOptions.map(opt => (
+                                                            <SelectItem key={opt.value} value={opt.value}>
+                                                                <div className="flex items-center gap-2">
+                                                                    <opt.icon className="h-4 w-4" />
+                                                                    {opt.label}
+                                                                </div>
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
+
                                         <FormField control={form.control} name="type" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Bet Type</FormLabel>
@@ -260,14 +291,14 @@ export default function AdminPage() {
                                                     <FormField control={form.control} name="range.start" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range Start</FormLabel>
-                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="range.end" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range End</FormLabel>
-                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormControl><Input type="number" {...field} onChange={e => field.onChange(e.target.value)} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />

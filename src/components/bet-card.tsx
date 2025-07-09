@@ -19,7 +19,7 @@ import { useUser } from "@/context/UserContext";
 import { useBets } from "@/context/BetContext";
 import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db, firebaseEnabled } from "@/lib/firebase";
@@ -34,6 +34,14 @@ const iconMap: { [key: string]: React.ElementType } = {
   CakeSlice,
   Mic,
   Users,
+  Gift,
+  Heart,
+  Music,
+  Camera,
+  GlassWater,
+  Mail,
+  Sun,
+  CloudRain,
 };
 
 export default function BetCard({ bet }: BetCardProps) {
@@ -62,7 +70,7 @@ export default function BetCard({ bet }: BetCardProps) {
                 const winnersQuery = query(
                     collection(db, "wagers"),
                     where("betId", "==", bet.id),
-                    where("outcome", "==", bet.winningOutcome)
+                    where("outcome", "==", String(bet.winningOutcome))
                 );
                 const querySnapshot = await getDocs(winnersQuery);
                 const winnerData = querySnapshot.docs.map(doc => ({
