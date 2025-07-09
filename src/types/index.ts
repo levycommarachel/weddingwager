@@ -67,3 +67,5 @@ export interface Parlay {
   updatedAt?: Timestamp;
   payout?: number; // Final payout amount
 }
+
+export type { Timestamp };
