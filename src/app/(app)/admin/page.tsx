@@ -29,44 +29,86 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 const betFormSchema = z.object({
-  question: z.string().min(10, 'Question must be at least 10 characters.'),
-  icon: z.string().min(2, 'Icon name is required.'),
+  question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
+  icon: z.string().min(2, { message: 'Icon name is required.' }),
   type: z.enum(['range', 'options']),
   range: z.object({
-    start: z.string().min(1, { message: 'Start value is required.' }).pipe(z.coerce.number()),
-    end: z.string().min(1, { message: 'End value is required.' }).pipe(z.coerce.number()),
+    start: z.string(),
+    end: z.string(),
   }).optional(),
-  options: z.array(z.object({ value: z.string().min(1, 'Option cannot be empty.') })).optional(),
+  options: z.array(z.object({ value: z.string() })).optional(),
 }).superRefine((data, ctx) => {
     if (data.type === 'range') {
-        if (!data.range) {
-             ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['range'],
-                message: 'Range is required for this bet type.',
-            });
-            return;
+        const startVal = data.range?.start;
+        const endVal = data.range?.end;
+
+        if (startVal === undefined || startVal.trim() === '') {
+            ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Start value is required.' });
         }
-        if (data.range.start >= data.range.end) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['range', 'end'],
-                message: 'Start must be less than end.',
-            });
+        if (endVal === undefined || endVal.trim() === '') {
+            ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'End value is required.' });
+        }
+
+        // Only proceed if both values are present strings
+        if (startVal && startVal.trim() !== '' && endVal && endVal.trim() !== '') {
+            const startNum = Number(startVal);
+            const endNum = Number(endVal);
+
+            if (isNaN(startNum)) {
+                ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Must be a valid number.' });
+            }
+            if (isNaN(endNum)) {
+                ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'Must be a valid number.' });
+            }
+            
+            if (!isNaN(startNum) && !isNaN(endNum) && startNum >= endNum) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['range', 'end'],
+                    message: 'Start must be less than end.',
+                });
+            }
         }
     }
 
     if (data.type === 'options') {
         if (!data.options || data.options.length < 2) {
              ctx.addIssue({
-                code: z.ZodIssueCode.custom,
+                code: 'custom',
                 path: ['options'],
                 message: 'At least two options are required.',
             });
+        } else {
+            let hasEmpty = false;
+            data.options.forEach((opt, index) => {
+                if (opt.value.trim() === '') {
+                    hasEmpty = true;
+                    ctx.addIssue({
+                        code: 'custom',
+                        path: [`options.${index}.value`],
+                        message: 'Option cannot be empty.',
+                    });
+                }
+            });
+            if(hasEmpty) return;
         }
     }
+}).transform((data) => {
+    // Transform string range values to numbers for use in onSubmit
+    if (data.type === 'range' && data.range) {
+        return {
+            ...data,
+            range: {
+                start: Number(data.range.start),
+                end: Number(data.range.end)
+            }
+        }
+    }
+    return data;
 });
 
+
+type BetFormInput = z.input<typeof betFormSchema>;
 
 export default function AdminPage() {
     const { bets, addBet, settleBet } = useBets();
@@ -77,7 +119,7 @@ export default function AdminPage() {
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
-    const form = useForm<z.infer<typeof betFormSchema>>({
+    const form = useForm<BetFormInput>({
         resolver: zodResolver(betFormSchema),
         defaultValues: {
             question: '',
