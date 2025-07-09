@@ -61,6 +61,13 @@ export default function LoginPage() {
                 title: 'Sign-in Cancelled',
                 description: 'You closed the sign-in window. Please try again.',
             });
+       } else if (error.code === 'auth/unauthorized-domain') {
+            toast({
+                variant: 'destructive',
+                title: 'Unauthorized Domain',
+                description: 'This domain has not been authorized. Please add it to your Firebase project settings.',
+                duration: 9000,
+            });
        } else if (error?.code === 'auth/configuration-not-found') {
             toast({
                 variant: 'destructive',
