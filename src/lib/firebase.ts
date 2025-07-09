@@ -16,6 +16,7 @@ let auth: Auth | null = null;
 let db: Firestore | null = null;
 let firebaseEnabled = false;
 
+// We check if the config has been populated, either by the env var or the .env file.
 if (firebaseConfig.apiKey && firebaseConfig.apiKey !== 'YOUR_API_KEY') {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
