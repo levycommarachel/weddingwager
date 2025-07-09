@@ -19,6 +19,7 @@ interface BetContextType {
   seedInitialBets: () => Promise<void>;
   updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
   createParlay: (legs: ParlayLeg[], amount: number) => Promise<void>;
+  updateParlay: (parlayId: string, newAmount: number) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -312,6 +313,50 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateParlay = async (parlayId: string, newAmount: number) => {
+    if (!user) throw new Error("User not authenticated");
+    const currentDb = db;
+    if (!currentDb) {
+        showFirebaseDisabledToast();
+        throw new Error("Firebase is not configured.");
+    }
+
+    const userRef = doc(currentDb, "users", user.uid);
+    const parlayRef = doc(currentDb, `users/${user.uid}/parlays`, parlayId);
+
+    await runTransaction(currentDb, async (transaction) => {
+        const [userDoc, parlayDoc] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(parlayRef)
+        ]);
+
+        if (!parlayDoc.exists() || parlayDoc.data().status !== 'open') {
+            throw new Error("This parlay is no longer open for changes.");
+        }
+        if (!userDoc.exists()) {
+            throw new Error("User data not found.");
+        }
+
+        const parlayData = parlayDoc.data() as Parlay;
+        const oldAmount = parlayData.amount;
+        const amountDifference = newAmount - oldAmount;
+
+        const currentBalance = userDoc.data().balance;
+        if (currentBalance < amountDifference) {
+            throw new Error("Insufficient balance for this change.");
+        }
+        
+        const newPotentialPayout = Math.floor(newAmount * Math.pow(2, parlayData.legs.length));
+
+        transaction.update(userRef, { balance: increment(-amountDifference) });
+        transaction.update(parlayRef, {
+            amount: newAmount,
+            potentialPayout: newPotentialPayout,
+            updatedAt: serverTimestamp()
+        });
+    });
+  };
+
   const settleBet = async (betId: string, winningOutcome: string | number) => {
     const currentDb = db;
     if (!currentDb) {
@@ -328,9 +373,13 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
           throw new Error("Bet is not open or does not exist.");
         }
 
-        const betPool = betDoc.data()!.pool;
+        const betData = betDoc.data();
+        if (!betData) throw new Error("Bet data is missing.");
+        
+        const betPool = betData.pool;
         
         const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
+        // Use getDocs without transaction for reads outside of transaction scope if needed
         const wagersSnapshot = await getDocs(wagersQuery); 
         const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
 
@@ -361,6 +410,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
           }
           
         } else {
+          // If there are no winners, refund everyone
           for (const wager of wagers) {
               const userRef = doc(currentDb, "users", wager.userId);
               const wagerRef = doc(currentDb, "wagers", wager.id);
@@ -383,7 +433,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay }}>
+    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay, updateParlay }}>
       {children}
     </BetContext.Provider>
   );

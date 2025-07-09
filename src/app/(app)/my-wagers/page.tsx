@@ -108,8 +108,9 @@ function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () 
     );
 }
 
-function ParlayCard({ parlay }: { parlay: Parlay }) {
+function ParlayCard({ parlay, onEdit }: { parlay: Parlay, onEdit: () => void }) {
   const isResolved = parlay.status === 'resolved';
+  const isOpen = parlay.status === 'open';
   
   let resultText, resultColor, StatusPill;
 
@@ -136,7 +137,14 @@ function ParlayCard({ parlay }: { parlay: Parlay }) {
                 <Layers className="h-5 w-5"/>
                 {parlay.legs.length}-Leg Parlay
             </CardTitle>
-            {StatusPill}
+            <div className="flex items-center gap-1 flex-shrink-0">
+                {StatusPill}
+                {isOpen && (
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                        <Pencil className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
         </div>
         <CardDescription>
             Wagered: <span className="font-semibold text-foreground">{parlay.amount.toLocaleString()} Pts</span>
@@ -179,11 +187,12 @@ function ParlayCard({ parlay }: { parlay: Parlay }) {
 
 
 export default function MyWagersPage() {
-    const { myWagers, myParlays, bets, loading: betsLoading, updateWager } = useBets();
+    const { myWagers, myParlays, bets, loading: betsLoading, updateWager, updateParlay } = useBets();
     const { user, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
     const [editingWager, setEditingWager] = useState<{ wager: Wager; bet: Bet } | null>(null);
+    const [editingParlay, setEditingParlay] = useState<Parlay | null>(null);
     const [newAmount, setNewAmount] = useState<number | string>('');
     const [newOutcome, setNewOutcome] = useState<string | number>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -195,7 +204,10 @@ export default function MyWagersPage() {
             setNewAmount(editingWager.wager.amount);
             setNewOutcome(editingWager.wager.outcome);
         }
-    }, [editingWager]);
+        if (editingParlay) {
+            setNewAmount(editingParlay.amount);
+        }
+    }, [editingWager, editingParlay]);
 
     const handleUpdateWager = async () => {
         if (!editingWager || !userData) return;
@@ -241,6 +253,50 @@ export default function MyWagersPage() {
                 variant: "destructive",
                 title: "Update Failed",
                 description: error.message || "Could not update your wager.",
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    
+    const handleUpdateParlay = async () => {
+        if (!editingParlay || !userData) return;
+        setIsSubmitting(true);
+
+        const numericNewAmount = Number(newAmount);
+        if (isNaN(numericNewAmount) || numericNewAmount <= 0) {
+            toast({
+                variant: "destructive",
+                title: "Invalid Bet Amount",
+                description: "Please enter a positive number for your bet.",
+            });
+            setIsSubmitting(false);
+            return;
+        }
+        
+        const amountDifference = numericNewAmount - editingParlay.amount;
+        if (amountDifference > userData.balance) {
+             toast({
+                variant: "destructive",
+                title: "Insufficient Balance",
+                description: `You don't have enough points to increase your wager.`,
+            });
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            await updateParlay(editingParlay.id, numericNewAmount);
+            toast({
+                title: "Parlay Updated!",
+                description: "Your wager amount has been changed.",
+            });
+            setEditingParlay(null);
+        } catch (error: any) {
+             toast({
+                variant: "destructive",
+                title: "Update Failed",
+                description: error.message || "Could not update your parlay.",
             });
         } finally {
             setIsSubmitting(false);
@@ -301,7 +357,7 @@ export default function MyWagersPage() {
                          {myParlays.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                                 {myParlays.map((parlay) => (
-                                    <ParlayCard key={parlay.id} parlay={parlay} />
+                                    <ParlayCard key={parlay.id} parlay={parlay} onEdit={() => setEditingParlay(parlay)} />
                                 ))}
                             </div>
                          ) : (
@@ -370,6 +426,42 @@ export default function MyWagersPage() {
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setEditingWager(null)}>Cancel</Button>
                         <Button onClick={handleUpdateWager} disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Save Changes"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editingParlay} onOpenChange={(open) => !open && setEditingParlay(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit Parlay Wager</DialogTitle>
+                        <DialogDescription>
+                            Update the amount you've wagered on this {editingParlay?.legs.length}-leg parlay.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6 py-4">
+                        <div>
+                            <Label htmlFor="edit-parlay-amount" className="font-bold text-base">Wager Amount</Label>
+                             <Input
+                                id="edit-parlay-amount"
+                                type="number"
+                                value={newAmount}
+                                onChange={(e) => setNewAmount(e.target.value)}
+                                min="1"
+                                className="mt-2"
+                                placeholder="Enter your bet"
+                            />
+                             <p className="text-sm text-muted-foreground mt-2">
+                                Potential Payout: {editingParlay ? Math.floor(Number(newAmount) * Math.pow(2, editingParlay.legs.length)).toLocaleString() : 0} Pts
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setEditingParlay(null)}>Cancel</Button>
+                        <Button onClick={handleUpdateParlay} disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="animate-spin" /> : "Save Changes"}
                         </Button>
                     </DialogFooter>

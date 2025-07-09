@@ -54,6 +54,7 @@ export interface Parlay {
   potentialPayout: number;
   status: 'open' | 'resolved';
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
   resolvedAt?: Timestamp;
   payout?: number;
   resolvedLegs: { [betId: string]: 'won' | 'lost' };
