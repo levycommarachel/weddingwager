@@ -19,6 +19,7 @@ interface BetContextType {
   settleBet: (betId: string, winningOutcome: string | number) => Promise<void>;
   seedInitialBets: () => Promise<void>;
   updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
+  updateParlay: (parlayId: string, newLegs: ParlayLeg[], newWager: number) => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -287,6 +288,68 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const updateParlay = async (parlayId: string, newLegs: ParlayLeg[], newWager: number) => {
+    if (!firebaseEnabled || !db || !user) {
+        showFirebaseDisabledToast();
+        throw new Error("User not authenticated.");
+    }
+
+    const parlayRef = doc(db, "parlays", parlayId);
+    const userRef = doc(db, "users", user.uid);
+
+    await runTransaction(db, async (transaction) => {
+        const [parlayDoc, userDoc] = await Promise.all([
+            transaction.get(parlayRef),
+            transaction.get(userRef),
+        ]);
+
+        if (!userDoc.exists()) {
+            throw new Error("User data not found.");
+        }
+        if (!parlayDoc.exists() || parlayDoc.data().userId !== user.uid) {
+            throw new Error("Parlay not found or you don't have permission to edit it.");
+        }
+
+        const parlayData = parlayDoc.data() as Parlay;
+
+        if (parlayData.status !== 'open') {
+            throw new Error("This parlay is no longer open for changes.");
+        }
+
+        const oldWager = parlayData.wager;
+        const wagerDifference = newWager - oldWager;
+        const currentBalance = userDoc.data().balance;
+
+        if (currentBalance < wagerDifference) {
+            throw new Error("Insufficient balance to increase your wager.");
+        }
+        
+        const getPayoutMultiplier = (legCount: number): number => {
+            if (legCount < 2) return 0;
+            if (legCount === 2) return 2.5;
+            if (legCount === 3) return 5;
+            if (legCount === 4) return 10;
+            return 15;
+        }
+
+        const newMultiplier = getPayoutMultiplier(newLegs.length);
+        const newPotentialPayout = Math.floor(newWager * newMultiplier);
+
+        if (wagerDifference !== 0) {
+             transaction.update(userRef, { balance: increment(-wagerDifference) });
+        }
+
+        transaction.update(parlayRef, {
+            wager: newWager,
+            legs: newLegs,
+            legIds: newLegs.map(l => l.betId),
+            payoutMultiplier: newMultiplier,
+            potentialPayout: newPotentialPayout,
+            updatedAt: serverTimestamp(),
+        });
+    });
+  };
+
   const settleBet = async (betId: string, winningOutcome: string | number) => {
     if (!firebaseEnabled || !db) { showFirebaseDisabledToast(); return; }
     
@@ -420,7 +483,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, placeParlay, updateWager, settleBet, seedInitialBets }}>
+    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, placeParlay, updateWager, settleBet, seedInitialBets, updateParlay }}>
       {children}
     </BetContext.Provider>
   );

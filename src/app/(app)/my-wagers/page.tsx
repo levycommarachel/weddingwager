@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
 
 
 function WagerCard({ wager, bet, onEdit }: { wager: Wager, bet: Bet, onEdit: () => void }) {
@@ -120,8 +121,9 @@ function ParlayLegStatus({ leg, parlay }: { leg: ParlayLeg, parlay: Parlay }) {
     return <XCircle className="h-4 w-4 text-destructive" title="Lost" />;
 }
 
-function ParlayCard({ parlay }: { parlay: Parlay }) {
+function ParlayCard({ parlay, onEdit }: { parlay: Parlay; onEdit: () => void; }) {
     let StatusPill, ResultIcon, resultColor, resultText;
+    const isOpen = parlay.status === 'open';
 
     if (parlay.status !== 'open' && parlay.payout !== undefined) {
         const profit = parlay.payout - parlay.wager;
@@ -144,10 +146,17 @@ function ParlayCard({ parlay }: { parlay: Parlay }) {
         <Card className="flex flex-col">
             <CardHeader>
                 <div className="flex justify-between items-start gap-4">
-                    <CardTitle className="font-headline text-xl flex items-center gap-2">
+                    <CardTitle className="font-headline text-xl flex items-center gap-2 flex-1">
                         <Layers /> {parlay.legs.length}-Leg Parlay
                     </CardTitle>
-                    {StatusPill}
+                     <div className="flex items-center gap-1 flex-shrink-0">
+                        {StatusPill}
+                        {isOpen && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
                 <CardDescription>
                     Wager: <span className="font-semibold text-foreground">{parlay.wager.toLocaleString()} Pts</span>
@@ -188,6 +197,7 @@ export default function MyWagersPage() {
     const { myWagers, myParlays, bets, loading: betsLoading, updateWager } = useBets();
     const { user, userData, loading: userLoading } = useUser();
     const { toast } = useToast();
+    const router = useRouter();
     
     const [editingWager, setEditingWager] = useState<{ wager: Wager; bet: Bet } | null>(null);
     const [newAmount, setNewAmount] = useState<number | string>('');
@@ -252,6 +262,10 @@ export default function MyWagersPage() {
             setIsSubmitting(false);
         }
     };
+    
+    const handleEditParlay = (parlayId: string) => {
+        router.push(`/parlay-builder?parlayId=${parlayId}`);
+    };
 
     if (loading) {
         return (
@@ -307,7 +321,11 @@ export default function MyWagersPage() {
                         {myParlays.length > 0 ? (
                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                                 {myParlays.map((parlay) => (
-                                    <ParlayCard key={parlay.id} parlay={parlay} />
+                                    <ParlayCard 
+                                        key={parlay.id} 
+                                        parlay={parlay} 
+                                        onEdit={() => handleEditParlay(parlay.id)}
+                                    />
                                 ))}
                             </div>
                         ) : (

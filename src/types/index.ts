@@ -64,5 +64,6 @@ export interface Parlay {
   resolvedLegs: Record<string, 'won' | 'lost'>;
   createdAt: Timestamp;
   resolvedAt?: Timestamp;
+  updatedAt?: Timestamp;
   payout?: number; // Final payout amount
 }

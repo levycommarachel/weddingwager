@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useBets } from '@/context/BetContext';
 import { useUser } from '@/context/UserContext';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Users, Clock, CakeSlice, Mic, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const iconMap: { [key: string]: React.ElementType } = {
   Clock, CakeSlice, Mic, Users, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain,
@@ -94,13 +95,28 @@ function ParlayBetCard({ bet, onSelectLeg, selectedOutcome }: { bet: Bet, onSele
 
 
 export default function ParlayBuilderPage() {
-    const { bets, placeParlay } = useBets();
+    const { bets, myParlays, placeParlay, updateParlay } = useBets();
     const { userData } = useUser();
     const { toast } = useToast();
+    const router = useRouter();
+    const searchParams = useSearchParams();
     
     const [slip, setSlip] = useState<ParlayLeg[]>([]);
     const [wager, setWager] = useState<number | string>(100);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingParlayId, setEditingParlayId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const parlayId = searchParams.get('parlayId');
+        if (parlayId && myParlays.length > 0) {
+            const parlayToEdit = myParlays.find(p => p.id === parlayId);
+            if (parlayToEdit && parlayToEdit.status === 'open') {
+                setSlip(parlayToEdit.legs);
+                setWager(parlayToEdit.wager);
+                setEditingParlayId(parlayToEdit.id);
+            }
+        }
+    }, [searchParams, myParlays]);
     
     const activeBets = bets.filter(bet => bet.status === 'open');
 
@@ -125,6 +141,11 @@ export default function ParlayBuilderPage() {
     
     const clearSlip = () => {
         setSlip([]);
+        setWager(100);
+        setEditingParlayId(null);
+        if (editingParlayId) {
+            router.push('/parlay-builder');
+        }
     }
     
     const multiplier = useMemo(() => getPayoutMultiplier(slip.length), [slip.length]);
@@ -135,7 +156,7 @@ export default function ParlayBuilderPage() {
     }, [wager, multiplier]);
     
     
-    const handlePlaceParlay = async () => {
+    const handlePlaceOrUpdateParlay = async () => {
          if (!userData) return;
         setIsSubmitting(true);
         
@@ -152,29 +173,39 @@ export default function ParlayBuilderPage() {
             return;
         }
 
-        if (numericWager > userData.balance) {
-            toast({ variant: "destructive", title: "Insufficient Balance" });
-            setIsSubmitting(false);
-            return;
-        }
-
         try {
-            await placeParlay(slip, numericWager, multiplier, potentialPayout);
-            toast({ title: "Parlay Placed!", description: `Your ${slip.length}-leg parlay is in. Good luck!` });
+            if (editingParlayId) {
+                await updateParlay(editingParlayId, slip, numericWager);
+                toast({ title: "Parlay Updated!", description: "Your changes have been saved." });
+            } else {
+                if (numericWager > userData.balance) {
+                    toast({ variant: "destructive", title: "Insufficient Balance" });
+                    setIsSubmitting(false);
+                    return;
+                }
+                await placeParlay(slip, numericWager, multiplier, potentialPayout);
+                toast({ title: "Parlay Placed!", description: `Your ${slip.length}-leg parlay is in. Good luck!` });
+            }
             setSlip([]);
             setWager(100);
+            setEditingParlayId(null);
+            router.push('/my-wagers');
         } catch (error: any) {
-             toast({ variant: "destructive", title: "Failed to Place Parlay", description: error.message });
+             toast({ variant: "destructive", title: editingParlayId ? "Update Failed" : "Failed to Place Parlay", description: error.message });
         } finally {
             setIsSubmitting(false);
         }
     }
 
+    const isEditing = editingParlayId !== null;
+
     return (
         <div className="container mx-auto py-8 px-4">
             <div className="text-center mb-12">
                 <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">Parlay Builder</h1>
-                <p className="text-muted-foreground mt-2 text-lg">Combine multiple bets for a bigger payout. All legs must win.</p>
+                <p className="text-muted-foreground mt-2 text-lg">
+                    {isEditing ? "Edit your parlay selections and wager." : "Combine multiple bets for a bigger payout. All legs must win."}
+                </p>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -252,9 +283,11 @@ export default function ParlayBuilderPage() {
                             </div>
                         </CardContent>
                         <CardFooter className="flex gap-2">
-                            <Button variant="outline" onClick={clearSlip} className="w-full" disabled={slip.length === 0}>Clear</Button>
-                            <Button className="w-full" disabled={isSubmitting || slip.length < 2} onClick={handlePlaceParlay}>
-                                {isSubmitting ? <Loader2 className="animate-spin" /> : "Place Parlay"}
+                            <Button variant="outline" onClick={clearSlip} className="w-full" disabled={slip.length === 0}>
+                                {isEditing ? "Cancel Edit" : "Clear"}
+                            </Button>
+                            <Button className="w-full" disabled={isSubmitting || slip.length < 2} onClick={handlePlaceOrUpdateParlay}>
+                                {isSubmitting ? <Loader2 className="animate-spin" /> : (isEditing ? "Update Parlay" : "Place Parlay")}
                             </Button>
                         </CardFooter>
                     </Card>
