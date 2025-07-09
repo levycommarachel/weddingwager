@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Layers, Trash2, Coins } from 'lucide-react';
 import type { Bet, ParlayLeg } from '@/types';
+import { Badge } from '@/components/ui/badge';
 import {
   Users, Clock, CakeSlice, Mic, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain
 } from 'lucide-react';
@@ -262,4 +263,3 @@ export default function ParlayBuilderPage() {
         </div>
     );
 }
-
