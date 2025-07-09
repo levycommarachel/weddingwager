@@ -18,19 +18,20 @@ function WagerCard({ wager, bet }: { wager: Wager, bet: Bet }) {
     let StatusPill, ResultIcon, resultColor, resultText;
 
     if (isResolved && hasPayoutInfo) {
+        const isWinner = bet.winningOutcome !== undefined && String(bet.winningOutcome) === String(wager.outcome);
         const profit = wager.payout - wager.amount;
 
-        if (profit > 0) { // Net gain
+        if (isWinner) {
             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
             ResultIcon = TrendingUp;
             resultColor = 'text-green-500';
             resultText = `+${profit.toLocaleString()} Pts`;
-        } else if (wager.payout === wager.amount) { // Push or refund
+        } else if (profit === 0) { // Not a winner, but got stake back -> Refund.
             StatusPill = <Badge className="bg-sky-100 dark:bg-sky-900 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300">Refund</Badge>;
             ResultIcon = CircleHelp;
             resultColor = 'text-sky-500';
             resultText = `+0 Pts`;
-        } else { // Net loss (payout is 0, or payout is less than amount wagered)
+        } else { // Not a winner, and payout is 0 -> Loss.
             StatusPill = <Badge variant="destructive">Lost</Badge>;
             ResultIcon = TrendingDown;
             resultColor = 'text-destructive';

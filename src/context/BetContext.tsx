@@ -200,8 +200,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       const betPool = betDoc.data().pool;
       const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
       
-      const winningWagers = wagers.filter(wager => wager.outcome == winningOutcome);
-      const losingWagers = wagers.filter(wager => wager.outcome != winningOutcome);
+      const winningWagers = wagers.filter(wager => String(wager.outcome) === String(winningOutcome));
+      const losingWagers = wagers.filter(wager => String(wager.outcome) !== String(winningOutcome));
       const totalWinningWagerAmount = winningWagers.reduce((sum, wager) => sum + wager.amount, 0);
 
       const batch = writeBatch(db);
