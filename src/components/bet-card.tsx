@@ -16,7 +16,8 @@ import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { useUser } from "@/context/UserContext";
-import { useBets, type Bet } from "@/context/BetContext";
+import { useBets } from "@/context/BetContext";
+import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
