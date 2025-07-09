@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, DatabaseZap } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,

@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, deleteDoc, collectionGroup, queryEqual } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, deleteDoc, collectionGroup } from 'firebase/firestore';
 import type { Bet, Wager } from '@/types';
 import { useUser } from './UserContext';
 
