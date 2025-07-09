@@ -19,7 +19,7 @@ function WagerCard({ wager, bet }: { wager: Wager, bet: Bet }) {
 
     if (isResolved && hasPayoutInfo) {
         const isWinner = bet.winningOutcome !== undefined && String(bet.winningOutcome) === String(wager.outcome);
-        const profit = wager.payout - wager.amount;
+        const profit = (wager.payout ?? 0) - wager.amount;
 
         if (isWinner) {
             StatusPill = <Badge className="bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700 text-green-700 dark:text-green-300">Won</Badge>;
