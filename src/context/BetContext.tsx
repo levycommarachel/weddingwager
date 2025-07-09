@@ -141,31 +141,36 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         return;
     }
 
-    const betRef = doc(db, "bets", betId);
+    const wagerId = `${user.uid}_${betId}`;
+    const wagerRef = doc(db, "wagers", wagerId);
     const userRef = doc(db, "users", user.uid);
-    const wagersQuery = query(collection(db, "wagers"), where("userId", "==", user.uid), where("betId", "==", betId));
+    const betRef = doc(db, "bets", betId);
     
     await runTransaction(db, async (transaction) => {
-        const userDoc = await transaction.get(userRef);
-        const betDoc = await transaction.get(betRef);
+        const [wagerDoc, userDoc, betDoc] = await Promise.all([
+            transaction.get(wagerRef),
+            transaction.get(userRef),
+            transaction.get(betRef)
+        ]);
         
-        if (!betDoc.exists()) throw new Error("Bet does not exist!");
-        if (!userDoc.exists()) throw new Error("User data not found.");
-
-        const existingWagers = await getDocs(wagersQuery);
-        if (!existingWagers.empty) {
+        if (wagerDoc.exists()) {
             throw new Error("You have already placed a wager on this bet.");
         }
-        
-        if (userDoc.data().balance < amount) {
+        if (!betDoc.exists()) {
+            throw new Error("Bet does not exist!");
+        }
+        if (!userDoc.exists()) {
+            throw new Error("User data not found.");
+        }
+
+        const currentBalance = userDoc.data().balance;
+        if (currentBalance < amount) {
             throw new Error("Insufficient balance.");
         }
 
         transaction.update(userRef, { balance: increment(-amount) });
         transaction.update(betRef, { pool: increment(amount) });
-
-        const newWagerRef = doc(collection(db, "wagers"));
-        transaction.set(newWagerRef, {
+        transaction.set(wagerRef, {
             userId: user.uid,
             nickname: userDoc.data().nickname,
             betId,
