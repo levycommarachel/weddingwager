@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useBets } from '@/context/BetContext';
 import { useUser } from '@/context/UserContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil } from "lucide-react";
+import { Loader2, Ticket, TrendingUp, TrendingDown, CircleHelp, Trophy, Pencil, Layers } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import type { Bet, Wager } from '@/types';
 import { Separator } from '@/components/ui/separator';
@@ -194,7 +194,7 @@ export default function MyWagersPage() {
             <div className="container mx-auto py-8 px-4">
                 <div className="text-center mb-12">
                     <h1 className="font-headline text-4xl md:text-5xl font-bold tracking-tight">My Wagers</h1>
-                    <p className="text-muted-foreground mt-2 text-lg">Track your single bets.</p>
+                    <p className="text-muted-foreground mt-2 text-lg">Track your single bets and parlays.</p>
                 </div>
                 
                 <div className="space-y-12">
@@ -220,6 +220,17 @@ export default function MyWagersPage() {
                                 <p>Head to the "All Wagers" page to get in on the action!</p>
                             </div>
                         )}
+                    </section>
+                    
+                    <section>
+                         <h2 className="font-headline text-3xl md:text-4xl font-bold tracking-tight mb-6 flex items-center gap-3">
+                            <Layers />
+                            My Parlays
+                        </h2>
+                         <div className="text-center py-16 text-muted-foreground bg-accent/30 rounded-lg border border-dashed">
+                            <p className="text-lg font-medium">You haven't placed any parlays yet.</p>
+                            <p>Use the Parlay Builder to get started!</p>
+                        </div>
                     </section>
                 </div>
             </div>

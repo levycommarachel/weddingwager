@@ -38,4 +38,26 @@ export interface Wager {
     payout?: number; // Calculated on settlement
 }
 
+export interface ParlayLeg {
+  betId: string;
+  question: string;
+  outcome: string | number;
+}
+
+// Stored in /users/{uid}/parlays/{parlayId}
+export interface Parlay {
+  id: string; // Firestore document ID
+  userId: string;
+  nickname: string;
+  legs: ParlayLeg[];
+  amount: number;
+  potentialPayout: number;
+  status: 'open' | 'resolved';
+  createdAt: Timestamp;
+  resolvedAt?: Timestamp;
+  payout?: number;
+  resolvedLegs: { [betId: string]: 'won' | 'lost' };
+}
+
+
 export type { Timestamp };
