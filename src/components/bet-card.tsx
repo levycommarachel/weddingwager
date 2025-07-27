@@ -50,7 +50,7 @@ export default function BetCard({ bet }: BetCardProps) {
   
   const [betAmount, setBetAmount] = useState<number | string>(100);
   const [betValue, setBetValue] = useState<string | number>(
-      bet.type === 'number' ? 0 : (bet.options ? bet.options[0] : '')
+      bet.type === 'number' ? '' : (bet.options ? bet.options[0] : '')
   );
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -112,7 +112,8 @@ export default function BetCard({ bet }: BetCardProps) {
     }
      if (bet.type === 'number') {
         const numericBetValue = Number(betValue);
-        if (isNaN(numericBetValue) || !Number.isInteger(numericBetValue)) {
+        // Updated validation to check if the value is an integer and not empty
+        if (betValue === '' || isNaN(numericBetValue) || !Number.isInteger(numericBetValue)) {
             toast({
                 variant: "destructive",
                 title: "Invalid Answer",
