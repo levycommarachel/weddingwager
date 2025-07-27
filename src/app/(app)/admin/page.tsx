@@ -28,30 +28,26 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
 
 const betFormSchema = z.object({
   question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
   icon: z.string().min(2, { message: 'Icon name is required.' }),
   type: z.enum(['range', 'options']),
   range: z.object({
-    start: z.coerce.number(),
-    end: z.coerce.number(),
+    start: z.coerce.number().int({ message: 'Must be a whole number.' }),
+    end: z.coerce.number().int({ message: 'Must be a whole number.' }),
   }).optional(),
   options: z.array(z.object({ 
     value: z.string().min(1, 'Option cannot be empty.')
   })).optional(),
 }).superRefine((data, ctx) => {
     if (data.type === 'range') {
-        if (data.range?.start === undefined || data.range?.end === undefined) {
+        if (!data.range || data.range.start === undefined || data.range.end === undefined) {
              ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Range values are required.' });
              return;
         }
         
-        const startNum = Number(data.range.start);
-        const endNum = Number(data.range.end);
-        
-        if (startNum >= endNum) {
+        if (data.range.start >= data.range.end) {
             ctx.addIssue({
                 code: 'custom',
                 path: ['range.end'],
@@ -124,7 +120,7 @@ export default function AdminPage() {
             };
 
             if (values.type === 'range' && values.range) {
-                newBetData.range = [Number(values.range.start), Number(values.range.end)];
+                newBetData.range = [values.range.start, values.range.end];
             } else if (values.type === 'options' && values.options) {
                 newBetData.options = values.options.map(o => o.value);
             }
@@ -255,14 +251,14 @@ export default function AdminPage() {
                                                     <FormField control={form.control} name="range.start" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range Start</FormLabel>
-                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormControl><Input type="number" step="1" {...field} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="range.end" render={({ field }) => (
                                                         <FormItem className="flex-1">
                                                             <FormLabel>Range End</FormLabel>
-                                                            <FormControl><Input type="number" {...field} /></FormControl>
+                                                            <FormControl><Input type="number" step="1" {...field} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
