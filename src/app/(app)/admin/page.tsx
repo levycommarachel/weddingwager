@@ -28,36 +28,30 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
 
 const betFormSchema = z.object({
   question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
   icon: z.string().min(2, { message: 'Icon name is required.' }),
   type: z.enum(['range', 'options']),
   range: z.object({
-    start: z.string().refine(val => val.trim() !== '', { message: 'Start value is required.' }),
-    end: z.string().refine(val => val.trim() !== '', { message: 'End value is required.' }),
+    start: z.coerce.number(),
+    end: z.coerce.number(),
   }).optional(),
   options: z.array(z.object({ 
     value: z.string().min(1, 'Option cannot be empty.')
   })).optional(),
 }).superRefine((data, ctx) => {
     if (data.type === 'range') {
-        if (!data.range?.start && !data.range?.end) {
+        if (data.range?.start === undefined || data.range?.end === undefined) {
              ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Range values are required.' });
              return;
         }
         
         const startNum = Number(data.range.start);
         const endNum = Number(data.range.end);
-
-        if (isNaN(startNum)) {
-            ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Must be a valid number.' });
-        }
-        if (isNaN(endNum)) {
-            ctx.addIssue({ code: 'custom', path: ['range.end'], message: 'Must be a valid number.' });
-        }
         
-        if (!isNaN(startNum) && !isNaN(endNum) && startNum >= endNum) {
+        if (startNum >= endNum) {
             ctx.addIssue({
                 code: 'custom',
                 path: ['range.end'],
@@ -108,7 +102,7 @@ export default function AdminPage() {
             question: '',
             icon: 'Users',
             type: 'range',
-            range: { start: '1', end: '10' },
+            range: { start: 1, end: 10 },
             options: [{value: ''}, {value: ''}],
         },
     });
