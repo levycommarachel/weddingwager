@@ -28,26 +28,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
-import { db } from '@/lib/firebase';
 
-const betFormSchema = z.object({
-  question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
-  icon: z.string().min(2, { message: 'Icon name is required.' }),
-  type: z.enum(['number', 'options']),
-  options: z.array(z.object({ 
-    value: z.string().min(1, 'Option cannot be empty.')
-  })).optional(),
-}).superRefine((data, ctx) => {
-    if (data.type === 'options') {
-        if (!data.options || data.options.length < 2) {
-             ctx.addIssue({
-                code: 'custom',
-                path: ['options'],
-                message: 'At least two options are required.',
-            });
-        }
-    }
-});
+const betFormSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('number'),
+        question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
+        icon: z.string().min(2, { message: 'Icon name is required.' }),
+    }),
+    z.object({
+        type: z.literal('options'),
+        question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
+        icon: z.string().min(2, { message: 'Icon name is required.' }),
+        options: z.array(z.object({ 
+            value: z.string().min(1, 'Option cannot be empty.')
+        })).min(2, 'At least two options are required.'),
+    })
+]);
+
 
 type BetFormValues = z.infer<typeof betFormSchema>;
 
@@ -81,16 +78,27 @@ export default function AdminPage() {
             question: '',
             icon: 'Users',
             type: 'number',
-            options: [{value: ''}, {value: ''}],
         },
+        // Re-evaluate the entire form when type changes
+        shouldUnregister: false, 
     });
+    
+    // When switching to 'options' type, ensure default options are present
+    const betType = form.watch('type');
+    React.useEffect(() => {
+        if (betType === 'options') {
+            const options = form.getValues('options');
+            if (!options || options.length < 2) {
+                form.setValue('options', [{value: ''}, {value: ''}]);
+            }
+        }
+    }, [betType, form]);
+
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
         name: "options"
     });
-
-    const betType = form.watch('type');
 
     async function onSubmit(values: BetFormValues) {
         setIsSubmitting(true);
@@ -106,7 +114,11 @@ export default function AdminPage() {
             }
             
             await addBet(newBetData);
-            form.reset();
+            form.reset({
+                question: '',
+                icon: 'Users',
+                type: 'number',
+            });
         } catch (error) {
             console.error("Failed to add bet:", error);
             toast({
@@ -224,7 +236,7 @@ export default function AdminPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
-
+                                        
                                         {betType === 'options' && (
                                             <div className="space-y-3">
                                                 <FormLabel>Options</FormLabel>
@@ -244,11 +256,7 @@ export default function AdminPage() {
                                                 <Button type="button" variant="outline" size="sm" onClick={() => append({value: ''})}>
                                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Option
                                                 </Button>
-                                                {form.formState.errors.options?.message && (
-                                                    <p className="text-sm font-medium text-destructive">
-                                                        {form.formState.errors.options.message}
-                                                    </p>
-                                                )}
+                                                <FormField name="options" render={() => <FormMessage />} />
                                             </div>
                                         )}
                                         <Button type="submit" className="w-full" disabled={isSubmitting}>
