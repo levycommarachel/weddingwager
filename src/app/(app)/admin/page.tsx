@@ -28,33 +28,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { db } from '@/lib/firebase';
 
 const betFormSchema = z.object({
   question: z.string().min(10, { message: 'Question must be at least 10 characters.' }),
   icon: z.string().min(2, { message: 'Icon name is required.' }),
-  type: z.enum(['range', 'options']),
-  range: z.object({
-    start: z.coerce.number().int({ message: 'Must be a whole number.' }),
-    end: z.coerce.number().int({ message: 'Must be a whole number.' }),
-  }).optional(),
+  type: z.enum(['number', 'options']),
   options: z.array(z.object({ 
     value: z.string().min(1, 'Option cannot be empty.')
   })).optional(),
 }).superRefine((data, ctx) => {
-    if (data.type === 'range') {
-        if (!data.range || data.range.start === undefined || data.range.end === undefined) {
-             ctx.addIssue({ code: 'custom', path: ['range.start'], message: 'Range values are required.' });
-             return;
-        }
-        
-        if (data.range.start >= data.range.end) {
-            ctx.addIssue({
-                code: 'custom',
-                path: ['range.end'],
-                message: 'End must be greater than start.',
-            });
-        }
-    }
     if (data.type === 'options') {
         if (!data.options || data.options.length < 2) {
              ctx.addIssue({
@@ -97,8 +80,7 @@ export default function AdminPage() {
         defaultValues: {
             question: '',
             icon: 'Users',
-            type: 'range',
-            range: { start: 1, end: 10 },
+            type: 'number',
             options: [{value: ''}, {value: ''}],
         },
     });
@@ -119,9 +101,7 @@ export default function AdminPage() {
                 type: values.type,
             };
 
-            if (values.type === 'range' && values.range) {
-                newBetData.range = [values.range.start, values.range.end];
-            } else if (values.type === 'options' && values.options) {
+            if (values.type === 'options' && values.options) {
                 newBetData.options = values.options.map(o => o.value);
             }
             
@@ -237,39 +217,13 @@ export default function AdminPage() {
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl><SelectTrigger><SelectValue placeholder="Select a bet type" /></SelectTrigger></FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="range">Numerical Range</SelectItem>
+                                                        <SelectItem value="number">Numerical</SelectItem>
                                                         <SelectItem value="options">Multiple Choice</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
-                                        
-                                        {betType === 'range' && (
-                                            <div className="space-y-2">
-                                                <div className="flex gap-4">
-                                                    <FormField control={form.control} name="range.start" render={({ field }) => (
-                                                        <FormItem className="flex-1">
-                                                            <FormLabel>Range Start</FormLabel>
-                                                            <FormControl><Input type="number" step="1" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )} />
-                                                    <FormField control={form.control} name="range.end" render={({ field }) => (
-                                                        <FormItem className="flex-1">
-                                                            <FormLabel>Range End</FormLabel>
-                                                            <FormControl><Input type="number" step="1" {...field} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )} />
-                                                </div>
-                                                 {form.formState.errors.range?.end?.message && (
-                                                    <p className="text-sm font-medium text-destructive">
-                                                        {form.formState.errors.range.end.message}
-                                                    </p>
-                                                )}
-                                            </div>
-                                        )}
 
                                         {betType === 'options' && (
                                             <div className="space-y-3">
@@ -345,7 +299,7 @@ export default function AdminPage() {
                     </AlertDialogHeader>
                     
                     <div className="py-4">
-                         {betToSettle?.type === 'range' && (
+                         {betToSettle?.type === 'number' && (
                             <div>
                                 <Label htmlFor="winning-outcome">Winning Number</Label>
                                 <Input 

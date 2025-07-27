@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import { useUser } from "@/context/UserContext";
@@ -50,8 +49,8 @@ export default function BetCard({ bet }: BetCardProps) {
   const { toast } = useToast();
   
   const [betAmount, setBetAmount] = useState<number | string>(100);
-  const [betValue, setBetValue] = useState(
-      bet.type === 'range' && bet.range ? bet.range[0] : (bet.options ? bet.options[0] : '')
+  const [betValue, setBetValue] = useState<string | number>(
+      bet.type === 'number' ? 0 : (bet.options ? bet.options[0] : '')
   );
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,6 +109,18 @@ export default function BetCard({ bet }: BetCardProps) {
       });
       setIsSubmitting(false);
       return;
+    }
+     if (bet.type === 'number') {
+        const numericBetValue = Number(betValue);
+        if (isNaN(numericBetValue) || !Number.isInteger(numericBetValue)) {
+            toast({
+                variant: "destructive",
+                title: "Invalid Answer",
+                description: "Please enter a whole number for your answer.",
+            });
+            setIsSubmitting(false);
+            return;
+        }
     }
     
     if (numericBetAmount > userData.balance) {
@@ -230,18 +241,15 @@ export default function BetCard({ bet }: BetCardProps) {
       <CardContent className="p-6 space-y-6">
         <div>
           <Label className="font-bold text-base">Your Answer</Label>
-          {bet.type === 'range' && bet.range && (
-            <div className="flex items-center gap-4 mt-2">
-              <Slider
-                min={bet.range[0]}
-                max={bet.range[1]}
-                step={1}
-                value={[Number(betValue)]}
-                onValueChange={(value) => setBetValue(value[0])}
-                className="flex-1"
+          {bet.type === 'number' && (
+             <Input
+                type="number"
+                value={betValue}
+                onChange={(e) => setBetValue(e.target.value)}
+                step="1"
+                placeholder="Enter a whole number"
+                className="mt-2"
               />
-              <span className="font-bold text-lg w-12 text-center">{betValue}</span>
-            </div>
           )}
           {bet.type === 'options' && bet.options && (
             <RadioGroup

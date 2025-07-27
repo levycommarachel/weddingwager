@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -380,18 +379,14 @@ export default function MyWagersPage() {
                     <div className="space-y-6 py-4">
                          <div>
                             <Label className="font-bold text-base">Your Answer</Label>
-                            {editingWager?.bet.type === 'range' && editingWager.bet.range && (
-                                <div className="flex items-center gap-4 mt-2">
-                                <Slider
-                                    min={editingWager.bet.range[0]}
-                                    max={editingWager.bet.range[1]}
-                                    step={1}
-                                    value={[Number(newOutcome)]}
-                                    onValueChange={(value) => setNewOutcome(value[0])}
-                                    className="flex-1"
+                            {editingWager?.bet.type === 'number' && (
+                                <Input
+                                    type="number"
+                                    value={newOutcome}
+                                    onChange={(e) => setNewOutcome(e.target.value)}
+                                    step="1"
+                                    className="mt-2"
                                 />
-                                <span className="font-bold text-lg w-12 text-center">{newOutcome}</span>
-                                </div>
                             )}
                             {editingWager?.bet.type === 'options' && editingWager.bet.options && (
                                 <RadioGroup

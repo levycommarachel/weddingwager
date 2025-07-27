@@ -12,7 +12,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
 import { Layers, X, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
@@ -44,7 +43,7 @@ function ParlayBetSelector({
   }
 
   // Use a different component for range to handle single selection properly
-  if (bet.type === 'range' && bet.range) {
+  if (bet.type === 'number') {
     const isSelected = betValue !== undefined;
     return (
       <Card className={`transition-all ${isSelected ? 'border-primary shadow-lg' : ''}`}>
@@ -52,20 +51,16 @@ function ParlayBetSelector({
             <CardTitle>{bet.question}</CardTitle>
         </CardHeader>
         <CardContent>
-            <div className="flex items-center gap-4 mt-2">
-              <Slider
-                min={bet.range[0]}
-                max={bet.range[1]}
-                step={1}
-                value={[Number(betValue) || bet.range[0]]}
-                onValueChange={(value) => setBetValue(value[0])}
-                className="flex-1"
-              />
-              <span className="font-bold text-lg w-12 text-center">{String(betValue ?? '-')}</span>
-            </div>
+            <Input
+                type="number"
+                step="1"
+                placeholder="Enter a whole number"
+                value={betValue ?? ''}
+                onChange={(e) => setBetValue(e.target.value)}
+            />
         </CardContent>
         <CardFooter>
-            <Button className="w-full" onClick={() => handleSelection(betValue ?? bet.range![0])}>
+            <Button className="w-full" onClick={() => handleSelection(betValue ?? 0)} disabled={betValue === undefined}>
                 {isSelected ? 'Update Selection' : 'Add to Parlay'}
             </Button>
         </CardFooter>

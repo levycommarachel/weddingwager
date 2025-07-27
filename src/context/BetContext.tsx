@@ -150,7 +150,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       
       const bet4Data = {
         question: "How many speeches will there be during the reception?",
-        type: 'range', range: [1, 8], icon: 'Mic',
+        type: 'number', icon: 'Mic',
         pool: 0, status: 'open', createdAt: serverTimestamp(),
       };
       batch.set(doc(betsCollectionRef), bet4Data);

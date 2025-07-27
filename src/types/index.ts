@@ -14,8 +14,7 @@ export interface UserData {
 export interface Bet {
   id: string; // Firestore document ID
   question: string;
-  type: 'range' | 'options';
-  range?: [number, number];
+  type: 'number' | 'options';
   options?: string[];
   pool: number;
   icon: string;
