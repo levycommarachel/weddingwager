@@ -46,7 +46,7 @@ export default function Header() {
       <div className="container flex h-16 items-center">
         <div className="mr-8 hidden md:flex">
            <Link href="/betting" className="flex items-center gap-2">
-            <Gem className="h-6 w-6 text-primary" />
+            <Gem className="h-6 w-6 text-accent-foreground" />
             <span className="font-headline text-xl font-bold">Wedding Wager</span>
           </Link>
         </div>
@@ -66,7 +66,7 @@ export default function Header() {
                   // Close sheet on navigation
                   onClick={() => (document.querySelector('[data-radix-dialog-close]') as HTMLElement)?.click()}
                 >
-                  <Gem className="h-6 w-6 text-primary" />
+                  <Gem className="h-6 w-6 text-accent-foreground" />
                   <span className="font-headline text-xl font-bold">Wedding Wager</span>
                 </Link>
               </SheetTitle>
@@ -113,8 +113,8 @@ export default function Header() {
           {userData ? (
              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 rounded-full bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground shadow-inner">
-                  <Coins className="h-4 w-4 text-primary" />
-                  <span style={{ color: "hsl(var(--primary-foreground))" }}>
+                  <Coins className="h-4 w-4 text-accent-foreground" />
+                  <span style={{ color: "hsl(var(--accent-foreground))" }}>
                     {userData.balance.toLocaleString()}
                   </span>
                 </div>

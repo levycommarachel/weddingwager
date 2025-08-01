@@ -108,7 +108,7 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="flex flex-col items-center justify-center text-center mb-8">
-        <Gem className="h-12 w-12 text-primary" />
+        <Gem className="h-12 w-12 text-accent-foreground" />
         <h1 className="font-headline text-5xl font-bold mt-4">Wedding Wager</h1>
         <p className="text-muted-foreground mt-2 text-lg">Place your bets on the big day!</p>
       </div>

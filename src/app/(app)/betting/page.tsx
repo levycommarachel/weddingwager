@@ -19,7 +19,7 @@ export default function BettingPage() {
       <div className="space-y-16">
         <section>
           <h2 className="font-headline text-3xl md:text-4xl font-bold tracking-tight mb-6 flex items-center gap-3">
-            <Gem className="text-primary" />
+            <Gem className="text-accent-foreground" />
             Active Wagers
           </h2>
           {activeBets.length > 0 ? (

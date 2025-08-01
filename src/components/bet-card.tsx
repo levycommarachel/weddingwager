@@ -259,7 +259,7 @@ export default function BetCard({ bet }: BetCardProps) {
               className="mt-2 grid grid-cols-2 gap-2"
             >
               {bet.options.map((option) => (
-                <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors">
+                <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors cursor-pointer">
                   <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
                   <span>{option}</span>
                 </Label>

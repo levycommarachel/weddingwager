@@ -46,7 +46,7 @@ function ParlayBetSelector({
   if (bet.type === 'number') {
     const isSelected = betValue !== undefined;
     return (
-      <Card className={`transition-all ${isSelected ? 'border-primary shadow-lg' : ''}`}>
+      <Card className={`transition-all ${isSelected ? 'border-primary-foreground/50 shadow-lg' : ''}`}>
         <CardHeader>
             <CardTitle>{bet.question}</CardTitle>
         </CardHeader>
@@ -70,7 +70,7 @@ function ParlayBetSelector({
   
   // Component for options
   return (
-    <Card className={betValue !== undefined ? 'border-primary shadow-lg' : ''}>
+    <Card className={betValue !== undefined ? 'border-primary-foreground/50 shadow-lg' : ''}>
         <CardHeader>
             <CardTitle>{bet.question}</CardTitle>
         </CardHeader>
@@ -81,7 +81,7 @@ function ParlayBetSelector({
                 className="mt-2 grid grid-cols-2 gap-2"
             >
                 {bet.options?.map((option) => (
-                    <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors cursor-pointer">
+                    <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary-foreground/50 transition-colors cursor-pointer">
                         <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
                         <span>{option}</span>
                     </Label>
@@ -238,7 +238,7 @@ export default function ParlayBuilderPage() {
                     {legsArray.length > 1 && (
                         <div className="text-right bg-accent/50 p-4 rounded-md">
                             <p className="text-muted-foreground">Potential Payout:</p>
-                            <p className="font-bold text-2xl text-primary-foreground">{potentialPayout.toLocaleString()} Pts</p>
+                            <p className="font-bold text-2xl text-accent-foreground">{potentialPayout.toLocaleString()} Pts</p>
                         </div>
                     )}
 
