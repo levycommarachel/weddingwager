@@ -280,7 +280,7 @@ export default function AdminPage() {
                                     <React.Fragment key={bet.id}>
                                         <div className="flex items-center justify-between p-4">
                                             <div className="font-medium">{bet.question}</div>
-                                            <Button variant="destructive" size="sm" onClick={() => setBetToSettle(bet)}>
+                                            <Button variant="secondary" size="sm" onClick={() => setBetToSettle(bet)}>
                                                 <Shield className="mr-2 h-4 w-4" /> Settle
                                             </Button>
                                         </div>
