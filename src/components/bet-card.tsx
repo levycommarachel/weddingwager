@@ -1,14 +1,13 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
   CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,11 +18,10 @@ import { useUser } from "@/context/UserContext";
 import { useBets } from "@/context/BetContext";
 import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain, BarChart3 } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { db, firebaseEnabled } from "@/lib/firebase";
-import { Separator } from "./ui/separator";
 
 
 interface BetCardProps {
@@ -58,29 +56,52 @@ export default function BetCard({ bet }: BetCardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [winners, setWinners] = useState<{ nickname: string }[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(false);
-  const [outcomeCounts, setOutcomeCounts] = useState<Record<string, number>>({});
+  const [outcomeStats, setOutcomeStats] = useState<Record<string, { count: number; amount: number }>>({});
   const [totalWagers, setTotalWagers] = useState(0);
 
   const isClosed = bet.status !== 'open';
   const isResolved = bet.status === 'resolved';
   
-  // Listen for wager counts in real-time for open bets
+  // Listen for wager stats in real-time for open bets
   useEffect(() => {
     if (!firebaseEnabled || !db || bet.status !== 'open') return;
 
     const q = query(collection(db, "wagers"), where("betId", "==", bet.id));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
-        const counts: Record<string, number> = {};
+        const stats: Record<string, { count: number; amount: number }> = {};
         querySnapshot.forEach((doc) => {
-            const outcome = String(doc.data().outcome);
-            counts[outcome] = (counts[outcome] || 0) + 1;
+            const data = doc.data();
+            const outcome = String(data.outcome);
+            const amount = data.amount || 0;
+            if (!stats[outcome]) {
+                stats[outcome] = { count: 0, amount: 0 };
+            }
+            stats[outcome].count += 1;
+            stats[outcome].amount += amount;
         });
-        setOutcomeCounts(counts);
+        setOutcomeStats(stats);
         setTotalWagers(querySnapshot.size);
     });
 
     return () => unsubscribe();
 }, [bet.id, bet.status]);
+
+  const potentialPayout = useMemo(() => {
+    const numericBetAmount = Number(betAmount);
+    if (isNaN(numericBetAmount) || numericBetAmount <= 0 || !betValue) {
+        return 0;
+    }
+
+    const currentOutcomeAmount = outcomeStats[String(betValue)]?.amount || 0;
+    const newTotalPool = bet.pool + numericBetAmount;
+    const newOutcomeTotal = currentOutcomeAmount + numericBetAmount;
+
+    if (newOutcomeTotal === 0) return 0; // Avoid division by zero
+
+    const payoutRatio = newTotalPool / newOutcomeTotal;
+    return Math.floor(numericBetAmount * payoutRatio);
+
+  }, [betAmount, betValue, bet.pool, outcomeStats]);
 
 
   useEffect(() => {
@@ -291,7 +312,7 @@ export default function BetCard({ bet }: BetCardProps) {
                     <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
                     <span>{option}</span>
                   </div>
-                   <span className="text-xs font-bold text-muted-foreground">{outcomeCounts[option] || 0}</span>
+                   <span className="text-xs font-bold text-muted-foreground">{outcomeStats[option]?.count || 0}</span>
                 </Label>
               ))}
             </RadioGroup>
@@ -310,7 +331,11 @@ export default function BetCard({ bet }: BetCardProps) {
           />
         </div>
       </CardContent>
-      <CardFooter className="bg-muted/30 p-4 flex gap-2">
+      <CardFooter className="bg-muted/30 p-4 flex flex-col gap-4 items-stretch">
+        <div className="text-right bg-background/50 p-3 rounded-md border">
+            <p className="text-sm text-muted-foreground">Potential Payout</p>
+            <p className="font-bold text-xl text-foreground">{potentialPayout.toLocaleString()} Pts</p>
+        </div>
         <Button onClick={handlePlaceBet} className="w-full" size="lg" disabled={isSubmitting}>
           {isSubmitting ? <Loader2 className="animate-spin" /> : "Place Bet"}
         </Button>
