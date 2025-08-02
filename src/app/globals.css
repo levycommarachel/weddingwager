@@ -17,7 +17,7 @@ body {
     --popover: 80 25% 25%;
     --popover-foreground: 40 30% 90%;
     
-    --primary: 45 85% 60%; /* Vibrant Goldenrod */
+    --primary: 45 70% 55%; /* Muted Goldenrod */
     --primary-foreground: 45 30% 15%;
     
     --secondary: 80 20% 40%;
@@ -54,7 +54,7 @@ body {
     --popover: 80 25% 25%;
     --popover-foreground: 40 30% 90%;
     
-    --primary: 45 85% 60%; /* Vibrant Goldenrod */
+    --primary: 45 70% 55%; /* Muted Goldenrod */
     --primary-foreground: 45 30% 15%;
     
     --secondary: 80 20% 40%;
