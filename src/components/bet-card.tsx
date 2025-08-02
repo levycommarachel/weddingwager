@@ -18,30 +18,16 @@ import { useUser } from "@/context/UserContext";
 import { useBets } from "@/context/BetContext";
 import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain } from "lucide-react";
+import { Coins, Users, Loader2, CheckCircle2, Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { db, firebaseEnabled } from "@/lib/firebase";
+import { iconMap } from "@/lib/bet-categories";
 
 
 interface BetCardProps {
   bet: Bet;
 }
-
-const iconMap: { [key: string]: React.ElementType } = {
-  Clock,
-  CakeSlice,
-  Mic,
-  Users,
-  Gift,
-  Heart,
-  Music,
-  Camera,
-  GlassWater,
-  Mail,
-  Sun,
-  CloudRain,
-};
 
 export default function BetCard({ bet }: BetCardProps) {
   const { userData } = useUser();
@@ -344,5 +330,3 @@ export default function BetCard({ bet }: BetCardProps) {
     </>
   );
 }
-
-    

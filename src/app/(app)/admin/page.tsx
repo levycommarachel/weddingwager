@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain, Users, Clock, CakeSlice, Mic } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from '@/hooks/use-toast';
+import { iconOptions } from '@/lib/bet-categories';
 
 const betFormSchema = z.discriminatedUnion('type', [
     z.object({
@@ -47,21 +48,6 @@ const betFormSchema = z.discriminatedUnion('type', [
 
 
 type BetFormValues = z.infer<typeof betFormSchema>;
-
-const iconOptions = [
-    { value: 'Users', label: 'People', icon: Users },
-    { value: 'Clock', label: 'Time', icon: Clock },
-    { value: 'Mic', label: 'Speeches', icon: Mic },
-    { value: 'CakeSlice', label: 'Cake', icon: CakeSlice },
-    { value: 'Gift', label: 'Gifts', icon: Gift },
-    { value: 'Heart', label: 'Love', icon: Heart },
-    { value: 'Music', label: 'Music', icon: Music },
-    { value: 'Camera', label: 'Photos', icon: Camera },
-    { value: 'GlassWater', label: 'Drinks', icon: GlassWater },
-    { value: 'Mail', label: 'Invitations', icon: Mail },
-    { value: 'Sun', label: 'Weather (Sun)', icon: Sun },
-    { value: 'CloudRain', label: 'Weather (Rain)', icon: CloudRain },
-];
 
 export default function AdminPage() {
     const { bets, addBet, settleBet } = useBets();
@@ -201,11 +187,11 @@ export default function AdminPage() {
                                         
                                         <FormField control={form.control} name="icon" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Icon</FormLabel>
+                                                <FormLabel>Category</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger>
-                                                            <SelectValue placeholder="Select an icon" />
+                                                            <SelectValue placeholder="Select a category" />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
