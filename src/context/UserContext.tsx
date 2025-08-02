@@ -13,7 +13,7 @@ interface UserContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
-  signUpWithEmail: (email: string, pass: string, nickname: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, nickname: string, isPTP: boolean) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -79,6 +79,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             photoURL: loggedInUser.photoURL,
             balance: 1000, // Starting balance
             isAdmin: false,
+            isPTP: false, // Default to false for Google sign-in
             lastActive: serverTimestamp(),
           });
           return { isNewUser: true };
@@ -90,7 +91,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const signUpWithEmail = async (email: string, pass: string, nickname: string) => {
+  const signUpWithEmail = async (email: string, pass: string, nickname: string, isPTP: boolean) => {
     if (!firebaseEnabled || !auth || !db) {
       throw new Error("Firebase not configured");
     }
@@ -103,6 +104,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
             nickname: nickname,
             balance: 1000,
             isAdmin: false,
+            isPTP: isPTP,
             lastActive: serverTimestamp(),
         });
     } catch (error: any) {

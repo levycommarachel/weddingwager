@@ -7,6 +7,7 @@ export interface UserData {
   photoURL?: string;
   balance: number;
   isAdmin: boolean;
+  isPTP: boolean; // Is Paying to Play
   lastActive: Timestamp;
 }
 

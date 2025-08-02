@@ -18,11 +18,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const signUpSchema = z.object({
   nickname: z.string().min(2, { message: "Nickname must be at least 2 characters." }).max(50),
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  isPTP: z.boolean().default(false),
 });
 
 const signInSchema = z.object({
@@ -52,8 +63,9 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+  const [isPtpModalOpen, setIsPtpModalOpen] = useState(false);
 
-  const signUpForm = useForm<SignUpFormValues>({ resolver: zodResolver(signUpSchema), defaultValues: { nickname: '', email: '', password: '' }});
+  const signUpForm = useForm<SignUpFormValues>({ resolver: zodResolver(signUpSchema), defaultValues: { nickname: '', email: '', password: '', isPTP: false }});
   const signInForm = useForm<SignInFormValues>({ resolver: zodResolver(signInSchema), defaultValues: { email: '', password: '' }});
 
   // Redirect if user and their data are fully loaded.
@@ -68,6 +80,8 @@ export default function LoginPage() {
     try {
       const { isNewUser } = await signInWithGoogle();
       if (isNewUser) {
+        // Since there's no form, we default isPTP to false. 
+        // A post-login flow could be added to ask this question.
         await seedInitialBets();
         toast({
             title: `Welcome!`,
@@ -89,7 +103,7 @@ export default function LoginPage() {
   async function onSignUp(values: SignUpFormValues) {
     setIsSubmitting(true);
     try {
-      await signUpWithEmail(values.email, values.password, values.nickname);
+      await signUpWithEmail(values.email, values.password, values.nickname, values.isPTP);
       await seedInitialBets();
       toast({
           title: `Welcome, ${values.nickname}!`,
@@ -170,6 +184,7 @@ export default function LoginPage() {
   }
 
   return (
+    <>
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="flex flex-col items-center justify-center text-center mb-8">
         <Gem className="h-12 w-12 text-accent-foreground" />
@@ -232,6 +247,33 @@ export default function LoginPage() {
                                 <FormMessage />
                             </FormItem>
                         )} />
+                         <FormField
+                            control={signUpForm.control}
+                            name="isPTP"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                                <FormControl>
+                                    <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={(checked) => {
+                                            field.onChange(checked);
+                                            if (checked) {
+                                                setIsPtpModalOpen(true);
+                                            }
+                                        }}
+                                    />
+                                </FormControl>
+                                <div className="space-y-1 leading-none">
+                                    <FormLabel>
+                                        I am paying to play.
+                                    </FormLabel>
+                                    <FormDescription>
+                                        Check this box if you are participating for real money.
+                                    </FormDescription>
+                                </div>
+                                </FormItem>
+                            )}
+                            />
                         <Button type="submit" className="w-full" disabled={isSubmitting}>
                             {isSubmitting ? <Loader2 className="animate-spin" /> : "Create Account"}
                         </Button>
@@ -253,5 +295,19 @@ export default function LoginPage() {
         </Tabs>
       </Card>
     </main>
+     <AlertDialog open={isPtpModalOpen} onOpenChange={setIsPtpModalOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>Pay to Play Agreement</AlertDialogTitle>
+            <AlertDialogDescription>
+                This is placeholder text. By checking this box, you acknowledge that you are participating in this betting pool with real money and agree to the terms and conditions set forth by the organizers. All financial transactions are your own responsibility. Please play responsibly.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsPtpModalOpen(false)}>I Understand</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
