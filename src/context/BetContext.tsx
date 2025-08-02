@@ -34,7 +34,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   
   // Listen for all bets
   useEffect(() => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
       setLoading(false);
       return;
     }
@@ -54,7 +54,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [toast]);
+  }, []);
 
   // Listen for user's wagers
   useEffect(() => {
@@ -112,13 +112,13 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const seedInitialBets = async () => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
         showFirebaseDisabledToast();
         return;
     }
     try {
       const betsCollectionRef = collection(db, 'bets');
-      const querySnapshot = await getDocs(query(betsCollectionRef));
+      let querySnapshot = await getDocs(query(betsCollectionRef));
       
       if (!querySnapshot.empty) {
         return; // Don't seed if bets already exist
@@ -155,6 +155,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       batch.set(doc(betsCollectionRef), bet4Data);
 
       await batch.commit();
+
+      // Re-fetch bets after seeding
+      querySnapshot = await getDocs(query(betsCollectionRef, orderBy("createdAt", "desc")));
+      const betsData = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+      } as Bet));
+      setBets(betsData);
+
       toast({ title: 'Success!', description: 'Initial bets have been seeded.' });
     } catch (error) {
       console.error("Error seeding bets: ", error);
@@ -164,7 +173,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
 
   const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
@@ -181,7 +190,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const placeBet = async (betId: string, outcome: string | number, amount: number) => {
     if (!user) throw new Error("User not authenticated.");
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
@@ -228,7 +237,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const createParlay = async (legs: ParlayLeg[], amount: number) => {
     if (!user || !userData) throw new Error("User not authenticated.");
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
       showFirebaseDisabledToast();
       throw new Error("Firebase is not configured.");
     }
@@ -269,7 +278,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const updateWager = async (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => {
     if (!user) throw new Error("User not authenticated");
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
@@ -310,7 +319,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const updateParlay = async (parlayId: string, newAmount: number) => {
     if (!user) throw new Error("User not authenticated");
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
@@ -352,7 +361,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const settleBet = async (betId: string, winningOutcome: string | number) => {
-    if (!firebaseEnabled) {
+    if (!firebaseEnabled || !db) {
       showFirebaseDisabledToast();
       return;
     }
@@ -439,3 +448,5 @@ export const useBets = () => {
   }
   return context;
 };
+
+    
