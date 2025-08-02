@@ -8,22 +8,22 @@ body {
 
 @layer base {
   :root {
-    --background: 80 25% 22%; /* Deep Olive Green */
+    --background: 80 30% 30%; /* Lighter Olive Green */
     --foreground: 40 30% 90%; /* Creamy Off-white */
     
-    --card: 80 25% 25%;
+    --card: 80 30% 33%;
     --card-foreground: 40 30% 90%;
     
-    --popover: 80 25% 18%;
+    --popover: 80 25% 25%;
     --popover-foreground: 40 30% 90%;
     
     --primary: 45 85% 60%; /* Vibrant Goldenrod */
     --primary-foreground: 45 30% 15%;
     
-    --secondary: 80 20% 30%;
+    --secondary: 80 20% 40%;
     --secondary-foreground: 40 30% 90%;
     
-    --muted: 80 20% 30%;
+    --muted: 80 20% 40%;
     --muted-foreground: 40 20% 70%;
     
     --accent: 40 65% 55%; /* Muted Gold */
@@ -32,8 +32,8 @@ body {
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 80 20% 35%;
-    --input: 80 20% 35%;
+    --border: 80 20% 45%;
+    --input: 80 20% 45%;
     --ring: 45 85% 60%;
     
     --chart-1: 220 70% 50%;
@@ -45,22 +45,22 @@ body {
   }
 
   .dark {
-    --background: 80 25% 22%; /* Deep Olive Green */
+    --background: 80 30% 30%; /* Lighter Olive Green */
     --foreground: 40 30% 90%; /* Creamy Off-white */
     
-    --card: 80 25% 25%;
+    --card: 80 30% 33%;
     --card-foreground: 40 30% 90%;
     
-    --popover: 80 25% 18%;
+    --popover: 80 25% 25%;
     --popover-foreground: 40 30% 90%;
     
     --primary: 45 85% 60%; /* Vibrant Goldenrod */
     --primary-foreground: 45 30% 15%;
     
-    --secondary: 80 20% 30%;
+    --secondary: 80 20% 40%;
     --secondary-foreground: 40 30% 90%;
     
-    --muted: 80 20% 30%;
+    --muted: 80 20% 40%;
     --muted-foreground: 40 20% 70%;
     
     --accent: 40 65% 55%; /* Muted Gold */
@@ -69,8 +69,8 @@ body {
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 80 20% 35%;
-    --input: 80 20% 35%;
+    --border: 80 20% 45%;
+    --input: 80 20% 45%;
     --ring: 45 85% 60%;
     
     --chart-1: 220 70% 50%;
