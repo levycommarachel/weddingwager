@@ -131,6 +131,10 @@ export default function LoginPage() {
         title = 'Action Required: Authorize Your Domain';
         description = `Firebase has blocked login from this URL. To fix this, you must add "${hostname}" to the "Authorized domains" list in your Firebase project's Authentication settings.`;
         break;
+      case 'auth/operation-not-allowed':
+        title = 'Action Required: Enable Sign-in Method';
+        description = 'The Email/Password sign-in method is not enabled. Please enable it in your Firebase project\'s Authentication settings under the "Sign-in method" tab.';
+        break;
       case 'auth/configuration-not-found':
         title = 'Authentication Error';
         description = 'An authentication provider is not enabled. Please enable one in your Firebase project settings.';
@@ -251,5 +255,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
-    
