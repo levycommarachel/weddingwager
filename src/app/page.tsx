@@ -118,8 +118,8 @@ export default function LoginPage() {
   }
 
   function handleAuthError(error: any) {
-    let title = 'Login Failed';
-    let description = error.message || "Could not log in. Please try again.";
+    let title = 'Authentication Failed';
+    let description = error.message || "An unknown error occurred. Please try again.";
 
     switch (error.code) {
       case 'auth/popup-closed-by-user':
@@ -153,7 +153,7 @@ export default function LoginPage() {
         break;
     }
      toast({ variant: 'destructive', title, description, duration: 9000 });
-     console.error(error);
+     console.error("Authentication Error:", error);
   }
 
   // Show a loader while checking auth state or if user is already logged in
@@ -251,3 +251,5 @@ export default function LoginPage() {
     </main>
   );
 }
+
+    
