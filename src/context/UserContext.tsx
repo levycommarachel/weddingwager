@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { auth, db, firebaseEnabled } from '@/lib/firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import type { UserData } from '@/types';
 
@@ -12,6 +12,8 @@ interface UserContextType {
   userData: UserData | null;
   loading: boolean;
   signInWithGoogle: () => Promise<{ isNewUser: boolean }>;
+  signInWithEmail: (email: string, pass: string) => Promise<void>;
+  signUpWithEmail: (email: string, pass: string, nickname: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -87,6 +89,40 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
         throw error; // re-throw to be caught by the UI form
     }
   };
+  
+  const signUpWithEmail = async (email: string, pass: string, nickname: string) => {
+    if (!firebaseEnabled || !auth || !db) {
+      throw new Error("Firebase not configured");
+    }
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        const loggedInUser = userCredential.user;
+        const userRef = doc(db, 'users', loggedInUser.uid);
+        
+        await setDoc(userRef, {
+            nickname: nickname,
+            balance: 1000,
+            isAdmin: false,
+            lastActive: serverTimestamp(),
+        });
+    } catch (error: any) {
+        console.error("Email/Pass Sign-Up error:", error);
+        throw error;
+    }
+  };
+
+  const signInWithEmail = async (email: string, pass: string) => {
+     if (!firebaseEnabled || !auth) {
+      throw new Error("Firebase not configured");
+    }
+    try {
+        await signInWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+        console.error("Email/Pass Sign-In error:", error);
+        throw error;
+    }
+  }
+
 
   const logout = async () => {
       if (!firebaseEnabled || !auth) {
@@ -100,7 +136,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <UserContext.Provider value={{ user, userData, loading, signInWithGoogle, logout }}>
+    <UserContext.Provider value={{ user, userData, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, logout }}>
       {children}
     </UserContext.Provider>
   );

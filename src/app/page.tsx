@@ -2,14 +2,36 @@
 "use client";
 
 import { useRouter } from 'next/navigation';
-import { Gem, Loader2 } from 'lucide-react';
+import { Gem, Loader2, Mail, Lock, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUser } from '@/context/UserContext';
 import { useToast } from '@/hooks/use-toast';
 import { useBets } from '@/context/BetContext';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Separator } from '@/components/ui/separator';
+
+const signUpSchema = z.object({
+  nickname: z.string().min(2, { message: "Nickname must be at least 2 characters." }).max(50),
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+});
+
+const signInSchema = z.object({
+  email: z.string().email({ message: "Please enter a valid email address." }),
+  password: z.string().min(1, { message: "Password is required." }),
+});
+
+type SignUpFormValues = z.infer<typeof signUpSchema>;
+type SignInFormValues = z.infer<typeof signInSchema>;
 
 
 const GoogleIcon = () => (
@@ -25,10 +47,14 @@ const GoogleIcon = () => (
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, userData, signInWithGoogle, loading: userLoading } = useUser();
+  const { user, userData, signInWithGoogle, signInWithEmail, signUpWithEmail, loading: userLoading } = useUser();
   const { seedInitialBets } = useBets();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+
+  const signUpForm = useForm<SignUpFormValues>({ resolver: zodResolver(signUpSchema), defaultValues: { nickname: '', email: '', password: '' }});
+  const signInForm = useForm<SignInFormValues>({ resolver: zodResolver(signInSchema), defaultValues: { email: '', password: '' }});
 
   // Redirect if user and their data are fully loaded.
   useEffect(() => {
@@ -37,8 +63,8 @@ export default function LoginPage() {
     }
   }, [user, userData, userLoading, router]);
 
-  async function handleSignIn() {
-    setIsSubmitting(true);
+  async function handleGoogleSignIn() {
+    setIsGoogleSubmitting(true);
     try {
       const { isNewUser } = await signInWithGoogle();
       if (isNewUser) {
@@ -53,47 +79,81 @@ export default function LoginPage() {
             description: "Let the games continue. Good luck!",
         });
       }
-      
     } catch (error: any) {
-       if (error.code === 'auth/popup-closed-by-user') {
-            toast({
-                variant: 'destructive',
-                title: 'Sign-in Cancelled',
-                description: 'You closed the sign-in window. Please try again.',
-            });
-       } else if (error.code === 'auth/unauthorized-domain') {
-            const hostname = window.location.hostname;
-            toast({
-                variant: 'destructive',
-                title: 'Action Required: Authorize Your Domain',
-                description: `Firebase has blocked login from this URL. To fix this, you must add "${hostname}" to the "Authorized domains" list in your Firebase project's Authentication settings.`,
-                duration: 15000,
-            });
-       } else if (error?.code === 'auth/configuration-not-found') {
-            toast({
-                variant: 'destructive',
-                title: 'Authentication Error',
-                description: 'Google Sign-In is not enabled. Please enable it in your Firebase project settings.',
-                duration: 9000,
-            });
-        } else if (error.message?.includes('client is offline')) {
-            toast({
-                variant: 'destructive',
-                title: 'Database Error',
-                description: 'Could not connect to the database. Please enable Firestore in your Firebase project settings.',
-                duration: 9000,
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: `Login Failed`,
-                description: error.message || "Could not log in. Please try again.",
-            });
-        }
-      console.error(error);
+       handleAuthError(error);
     } finally {
-        setIsSubmitting(false);
+        setIsGoogleSubmitting(false);
     }
+  }
+
+  async function onSignUp(values: SignUpFormValues) {
+    setIsSubmitting(true);
+    try {
+      await signUpWithEmail(values.email, values.password, values.nickname);
+      await seedInitialBets();
+      toast({
+          title: `Welcome, ${values.nickname}!`,
+          description: "Your account has been created. You have 1,000 points to start. Good luck!",
+      });
+    } catch (error: any) {
+      handleAuthError(error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  
+  async function onSignIn(values: SignInFormValues) {
+      setIsSubmitting(true);
+      try {
+          await signInWithEmail(values.email, values.password);
+          toast({
+              title: `Welcome back!`,
+              description: "Let the games continue. Good luck!",
+          });
+      } catch (error: any) {
+          handleAuthError(error);
+      } finally {
+          setIsSubmitting(false);
+      }
+  }
+
+  function handleAuthError(error: any) {
+    let title = 'Login Failed';
+    let description = error.message || "Could not log in. Please try again.";
+
+    switch (error.code) {
+      case 'auth/popup-closed-by-user':
+        title = 'Sign-in Cancelled';
+        description = 'You closed the sign-in window. Please try again.';
+        break;
+      case 'auth/unauthorized-domain':
+        const hostname = window.location.hostname;
+        title = 'Action Required: Authorize Your Domain';
+        description = `Firebase has blocked login from this URL. To fix this, you must add "${hostname}" to the "Authorized domains" list in your Firebase project's Authentication settings.`;
+        break;
+      case 'auth/configuration-not-found':
+        title = 'Authentication Error';
+        description = 'An authentication provider is not enabled. Please enable one in your Firebase project settings.';
+        break;
+      case 'auth/email-already-in-use':
+        title = 'Email Taken';
+        description = 'This email is already registered. Please sign in or use a different email.';
+        break;
+      case 'auth/invalid-credential':
+        title = 'Invalid Credentials';
+        description = 'The email or password you entered is incorrect. Please try again.';
+        break;
+      case 'auth/weak-password':
+        title = 'Weak Password';
+        description = 'The password must be at least 6 characters long.';
+        break;
+      case 'client-offline':
+        title = 'Database Error';
+        description = 'Could not connect to the database. Please enable Firestore in your Firebase project settings.';
+        break;
+    }
+     toast({ variant: 'destructive', title, description, duration: 9000 });
+     console.error(error);
   }
 
   // Show a loader while checking auth state or if user is already logged in
@@ -113,13 +173,70 @@ export default function LoginPage() {
         <p className="text-muted-foreground mt-2 text-lg">Place your bets on the big day!</p>
       </div>
       <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="font-headline text-2xl">Join the Fun</CardTitle>
-          <CardDescription>Sign in with your Google account to start playing.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Button onClick={handleSignIn} className="w-full" variant="outline" disabled={isSubmitting}>
-                {isSubmitting ? (
+        <Tabs defaultValue="signin">
+          <CardHeader>
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+          </CardHeader>
+          <CardContent>
+            <TabsContent value="signin">
+                <Form {...signInForm}>
+                    <form onSubmit={signInForm.handleSubmit(onSignIn)} className="space-y-4">
+                        <FormField control={signInForm.control} name="email" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={signInForm.control} name="password" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Password</FormLabel>
+                                <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Sign In"}
+                        </Button>
+                    </form>
+                </Form>
+            </TabsContent>
+            <TabsContent value="signup">
+               <Form {...signUpForm}>
+                    <form onSubmit={signUpForm.handleSubmit(onSignUp)} className="space-y-4">
+                         <FormField control={signUpForm.control} name="nickname" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Nickname</FormLabel>
+                                <FormControl><Input placeholder="Your Name" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={signUpForm.control} name="email" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl><Input placeholder="you@example.com" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={signUpForm.control} name="password" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Password</FormLabel>
+                                <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : "Create Account"}
+                        </Button>
+                    </form>
+                </Form>
+            </TabsContent>
+             <Separator className="my-6" />
+              <Button onClick={handleGoogleSignIn} className="w-full" variant="outline" disabled={isGoogleSubmitting}>
+                {isGoogleSubmitting ? (
                     <Loader2 className="animate-spin" />
                 ) : (
                     <>
@@ -128,7 +245,8 @@ export default function LoginPage() {
                     </>
                 )}
             </Button>
-        </CardContent>
+          </CardContent>
+        </Tabs>
       </Card>
     </main>
   );
