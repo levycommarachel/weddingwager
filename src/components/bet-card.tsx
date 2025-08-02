@@ -8,6 +8,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +19,11 @@ import { useUser } from "@/context/UserContext";
 import { useBets } from "@/context/BetContext";
 import type { Bet } from '@/types';
 import { useToast } from "@/hooks/use-toast";
-import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain } from "lucide-react";
+import { Coins, Users, Clock, CakeSlice, Mic, Loader2, CheckCircle2, Trophy, Gift, Heart, Music, Camera, GlassWater, Mail, Sun, CloudRain, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { db, firebaseEnabled } from "@/lib/firebase";
+import { Separator } from "./ui/separator";
 
 
 interface BetCardProps {
@@ -56,9 +58,30 @@ export default function BetCard({ bet }: BetCardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [winners, setWinners] = useState<{ nickname: string }[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(false);
-  
+  const [outcomeCounts, setOutcomeCounts] = useState<Record<string, number>>({});
+  const [totalWagers, setTotalWagers] = useState(0);
+
   const isClosed = bet.status !== 'open';
   const isResolved = bet.status === 'resolved';
+  
+  // Listen for wager counts in real-time for open bets
+  useEffect(() => {
+    if (!firebaseEnabled || !db || bet.status !== 'open') return;
+
+    const q = query(collection(db, "wagers"), where("betId", "==", bet.id));
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const counts: Record<string, number> = {};
+        querySnapshot.forEach((doc) => {
+            const outcome = String(doc.data().outcome);
+            counts[outcome] = (counts[outcome] || 0) + 1;
+        });
+        setOutcomeCounts(counts);
+        setTotalWagers(querySnapshot.size);
+    });
+
+    return () => unsubscribe();
+}, [bet.id, bet.status]);
+
 
   useEffect(() => {
     if (isResolved && bet.winningOutcome !== undefined) {
@@ -222,7 +245,7 @@ export default function BetCard({ bet }: BetCardProps) {
 
   return (
     <>
-    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300`}>
+    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col`}>
       <CardHeader className="bg-accent/50 p-4 border-b">
         <div className="flex items-center gap-4">
           <div className="bg-primary/20 p-3 rounded-full">
@@ -235,11 +258,15 @@ export default function BetCard({ bet }: BetCardProps) {
                     <Coins className="h-4 w-4" />
                     <span>{bet.pool.toLocaleString()} Points Pooled</span>
                 </div>
+                 <div className="flex items-center gap-1">
+                    <Users className="h-4 w-4" />
+                    <span>{totalWagers} Wagers</span>
+                </div>
             </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-6 space-y-6 flex-grow">
         <div>
           <Label className="font-bold text-base">Your Answer</Label>
           {bet.type === 'number' && (
@@ -259,9 +286,12 @@ export default function BetCard({ bet }: BetCardProps) {
               className="mt-2 grid grid-cols-2 gap-2"
             >
               {bet.options.map((option) => (
-                <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors cursor-pointer">
-                  <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
-                  <span>{option}</span>
+                <Label key={option} className="flex items-center justify-between space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors cursor-pointer">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
+                    <span>{option}</span>
+                  </div>
+                   <span className="text-xs font-bold text-muted-foreground">{outcomeCounts[option] || 0}</span>
                 </Label>
               ))}
             </RadioGroup>
@@ -289,3 +319,5 @@ export default function BetCard({ bet }: BetCardProps) {
     </>
   );
 }
+
+    
