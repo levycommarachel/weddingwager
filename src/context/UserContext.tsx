@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { auth, db, firebaseEnabled } from '@/lib/firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword, type User as FirebaseUser, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import type { UserData } from '@/types';
 
@@ -25,7 +25,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!firebaseEnabled || !auth) {
+    if (!firebaseEnabled) {
       setLoading(false);
       return;
     }
@@ -43,7 +43,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let unsubscribeFirestore: () => void;
-    if (user && firebaseEnabled && db) {
+    if (user && firebaseEnabled) {
         const userRef = doc(db, 'users', user.uid);
         unsubscribeFirestore = onSnapshot(userRef, (doc) => {
             if (doc.exists()) {
@@ -62,7 +62,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const signInWithGoogle = async (): Promise<{ isNewUser: boolean }> => {
-    if (!firebaseEnabled || !auth || !db) {
+    if (!firebaseEnabled) {
       throw new Error("Firebase not configured");
     }
     
@@ -92,7 +92,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const signUpWithEmail = async (email: string, pass: string, nickname: string, isPTP: boolean) => {
-    if (!firebaseEnabled || !auth || !db) {
+    if (!firebaseEnabled) {
       throw new Error("Firebase not configured");
     }
     try {
@@ -114,7 +114,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
-     if (!firebaseEnabled || !auth) {
+     if (!firebaseEnabled) {
       throw new Error("Firebase not configured");
     }
     try {
@@ -127,12 +127,12 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
 
   const logout = async () => {
-      if (!firebaseEnabled || !auth) {
+      if (!firebaseEnabled) {
         setUser(null);
         setUserData(null);
         return;
       }
-      await auth.signOut();
+      await signOut(auth);
       setUser(null);
       setUserData(null);
   }

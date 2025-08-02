@@ -3,15 +3,13 @@ import { initializeApp, getApps, getApp, type FirebaseApp, type FirebaseOptions 
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
 let firebaseEnabled = false;
 
 // This code runs on the client, so we can check for the public env vars
 if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-  firebaseEnabled = true;
-
   const firebaseConfig: FirebaseOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
     authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -30,6 +28,7 @@ if (process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
     }
     auth = getAuth(app);
     db = getFirestore(app);
+    firebaseEnabled = true;
   } catch (e) {
     console.error("Firebase initialization failed:", e);
     firebaseEnabled = false;

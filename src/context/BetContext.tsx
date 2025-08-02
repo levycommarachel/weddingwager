@@ -34,7 +34,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   
   // Listen for all bets
   useEffect(() => {
-    if (!firebaseEnabled || !db) {
+    if (!firebaseEnabled) {
       setLoading(false);
       return;
     }
@@ -58,7 +58,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   // Listen for user's wagers
   useEffect(() => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!firebaseEnabled || !user) {
         setMyWagers([]);
         return;
     }
@@ -87,7 +87,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   // Listen for user's parlays
   useEffect(() => {
-    if (!firebaseEnabled || !db || !user) {
+    if (!firebaseEnabled || !user) {
         setMyParlays([]);
         return;
     }
@@ -112,20 +112,19 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   }
 
   const seedInitialBets = async () => {
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
         showFirebaseDisabledToast();
         return;
     }
     try {
-      const betsCollectionRef = collection(currentDb, 'bets');
+      const betsCollectionRef = collection(db, 'bets');
       const querySnapshot = await getDocs(query(betsCollectionRef));
       
       if (!querySnapshot.empty) {
         return; // Don't seed if bets already exist
       }
       
-      const batch = writeBatch(currentDb);
+      const batch = writeBatch(db);
       
       const bet1Data = {
         question: "Will Michelle wear a veil?",
@@ -165,13 +164,12 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
 
   const addBet = async (betData: Omit<Bet, 'id' | 'pool' | 'status' | 'createdAt'>) => {
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
     try {
-      await addDoc(collection(currentDb, 'bets'), {
+      await addDoc(collection(db, 'bets'), {
         ...betData, pool: 0, status: 'open', createdAt: serverTimestamp(),
       });
       toast({ title: "New Bet Added!", description: `"${betData.question}" is now open for wagers.` });
@@ -183,18 +181,17 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const placeBet = async (betId: string, outcome: string | number, amount: number) => {
     if (!user) throw new Error("User not authenticated.");
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
 
     const wagerId = `${user.uid}_${betId}`;
-    const wagerRef = doc(currentDb, "wagers", wagerId);
-    const userRef = doc(currentDb, "users", user.uid);
-    const betRef = doc(currentDb, "bets", betId);
+    const wagerRef = doc(db, "wagers", wagerId);
+    const userRef = doc(db, "users", user.uid);
+    const betRef = doc(db, "bets", betId);
     
-    await runTransaction(currentDb, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
         const [wagerDoc, userDoc, betDoc] = await Promise.all([
             transaction.get(wagerRef),
             transaction.get(userRef),
@@ -231,8 +228,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const createParlay = async (legs: ParlayLeg[], amount: number) => {
     if (!user || !userData) throw new Error("User not authenticated.");
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
       showFirebaseDisabledToast();
       throw new Error("Firebase is not configured.");
     }
@@ -244,10 +240,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Wager amount must be positive.");
     }
 
-    const userRef = doc(currentDb, "users", user.uid);
-    const parlaysRef = collection(currentDb, `users/${user.uid}/parlays`);
+    const userRef = doc(db, "users", user.uid);
+    const parlaysRef = collection(db, `users/${user.uid}/parlays`);
 
-    await runTransaction(currentDb, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
       const userDoc = await transaction.get(userRef);
       if (!userDoc.exists() || userDoc.data().balance < amount) {
         throw new Error("Insufficient balance.");
@@ -273,17 +269,16 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const updateWager = async (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => {
     if (!user) throw new Error("User not authenticated");
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
 
-    const wagerRef = doc(currentDb, "wagers", wagerId);
-    const userRef = doc(currentDb, "users", user.uid);
-    const betRef = doc(currentDb, "bets", betId);
+    const wagerRef = doc(db, "wagers", wagerId);
+    const userRef = doc(db, "users", user.uid);
+    const betRef = doc(db, "bets", betId);
 
-    await runTransaction(currentDb, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
         const [userDoc, betDoc] = await Promise.all([
             transaction.get(userRef),
             transaction.get(betRef)
@@ -315,16 +310,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
 
   const updateParlay = async (parlayId: string, newAmount: number) => {
     if (!user) throw new Error("User not authenticated");
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
 
-    const userRef = doc(currentDb, "users", user.uid);
-    const parlayRef = doc(currentDb, `users/${user.uid}/parlays`, parlayId);
+    const userRef = doc(db, "users", user.uid);
+    const parlayRef = doc(db, `users/${user.uid}/parlays`, parlayId);
 
-    await runTransaction(currentDb, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
         const [userDoc, parlayDoc] = await Promise.all([
             transaction.get(userRef),
             transaction.get(parlayRef)
@@ -358,16 +352,15 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const settleBet = async (betId: string, winningOutcome: string | number) => {
-    const currentDb = db;
-    if (!currentDb) {
+    if (!firebaseEnabled) {
       showFirebaseDisabledToast();
       return;
     }
 
     try {
-      const betRef = doc(currentDb, "bets", betId);
+      const betRef = doc(db, "bets", betId);
       
-      await runTransaction(currentDb, async (transaction) => {
+      await runTransaction(db, async (transaction) => {
         const betDoc = await transaction.get(betRef);
         if (!betDoc.exists() || betDoc.data().status !== 'open') {
           throw new Error("Bet is not open or does not exist.");
@@ -378,7 +371,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         
         const betPool = betData.pool;
         
-        const wagersQuery = query(collection(currentDb, "wagers"), where("betId", "==", betId));
+        const wagersQuery = query(collection(db, "wagers"), where("betId", "==", betId));
         // Use getDocs without transaction for reads outside of transaction scope if needed
         const wagersSnapshot = await getDocs(wagersQuery); 
         const wagers = wagersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Wager));
@@ -397,23 +390,23 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
           const payoutRatio = betPool / totalWinningWagerAmount;
           
           for (const wager of winningWagers) {
-            const userRef = doc(currentDb, "users", wager.userId);
-            const wagerRef = doc(currentDb, "wagers", wager.id);
+            const userRef = doc(db, "users", wager.userId);
+            const wagerRef = doc(db, "wagers", wager.id);
             const payout = Math.floor(wager.amount * payoutRatio);
             transaction.update(userRef, { balance: increment(payout) });
             transaction.update(wagerRef, { payout });
           }
 
           for (const wager of losingWagers) {
-            const wagerRef = doc(currentDb, "wagers", wager.id);
+            const wagerRef = doc(db, "wagers", wager.id);
             transaction.update(wagerRef, { payout: 0 });
           }
           
         } else {
           // If there are no winners, refund everyone
           for (const wager of wagers) {
-              const userRef = doc(currentDb, "users", wager.userId);
-              const wagerRef = doc(currentDb, "wagers", wager.id);
+              const userRef = doc(db, "users", wager.userId);
+              const wagerRef = doc(db, "wagers", wager.id);
               const refundAmount = wager.amount;
               transaction.update(userRef, { balance: increment(refundAmount) });
               transaction.update(wagerRef, { payout: refundAmount });
