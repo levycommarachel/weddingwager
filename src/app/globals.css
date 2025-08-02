@@ -8,52 +8,71 @@ body {
 
 @layer base {
   :root {
-    --background: 34 33% 95%; /* Creamy Off-white */
-    --foreground: 20 25% 20%; /* Dark Brown */
-    --card: 34 33% 98%; /* Slightly lighter cream for cards */
-    --card-foreground: 20 25% 20%;
-    --popover: 34 33% 98%;
-    --popover-foreground: 20 25% 20%;
-    --primary: 80 30% 45%; /* Olive Green */
-    --primary-foreground: 34 33% 98%;
-    --secondary: 34 20% 90%;
-    --secondary-foreground: 20 25% 20%;
-    --muted: 34 20% 90%;
-    --muted-foreground: 20 25% 40%;
-    --accent: 45 75% 55%; /* Goldenrod */
-    --accent-foreground: 20 25% 20%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 34 20% 85%;
-    --input: 34 20% 88%;
-    --ring: 80 30% 45%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 20 25% 15%; /* Dark Brown */
-    --foreground: 34 33% 95%; /* Creamy Off-white */
+    --background: 20 25% 15%; /* Dark Olive/Brown */
+    --foreground: 40 15% 85%; /* Creamy Off-white */
+    
     --card: 20 25% 18%;
-    --card-foreground: 34 33% 95%;
+    --card-foreground: 40 15% 85%;
+    
     --popover: 20 25% 18%;
-    --popover-foreground: 34 33% 95%;
-    --primary: 80 30% 50%; /* Olive Green */
-    --primary-foreground: 34 33% 98%;
+    --popover-foreground: 40 15% 85%;
+    
+    --primary: 25 80% 60%; /* Funky Orange */
+    --primary-foreground: 25 20% 10%;
+    
     --secondary: 20 25% 25%;
-    --secondary-foreground: 34 33% 95%;
+    --secondary-foreground: 40 15% 85%;
+    
     --muted: 20 25% 25%;
-    --muted-foreground: 34 33% 75%;
+    --muted-foreground: 40 15% 65%;
+    
     --accent: 45 75% 55%; /* Goldenrod */
-    --accent-foreground: 20 25% 20%;
+    --accent-foreground: 20 25% 10%;
+    
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    
     --border: 20 25% 30%;
     --input: 20 25% 30%;
-    --ring: 80 30% 50%;
+    --ring: 25 80% 60%;
+    
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 20 25% 15%; /* Dark Olive/Brown */
+    --foreground: 40 15% 85%; /* Creamy Off-white */
+    
+    --card: 20 25% 18%;
+    --card-foreground: 40 15% 85%;
+    
+    --popover: 20 25% 18%;
+    --popover-foreground: 40 15% 85%;
+    
+    --primary: 25 80% 60%; /* Funky Orange */
+    --primary-foreground: 25 20% 10%;
+    
+    --secondary: 20 25% 25%;
+    --secondary-foreground: 40 15% 85%;
+    
+    --muted: 20 25% 25%;
+    --muted-foreground: 40 15% 65%;
+    
+    --accent: 45 75% 55%; /* Goldenrod */
+    --accent-foreground: 20 25% 10%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 20 25% 30%;
+    --input: 20 25% 30%;
+    --ring: 25 80% 60%;
+    
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
