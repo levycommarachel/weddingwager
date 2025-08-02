@@ -34,11 +34,13 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
   
   // Listen for all bets
   useEffect(() => {
-    if (!firebaseEnabled || !db) {
+    if (!firebaseEnabled || !db || !user) {
+      setBets([]);
       setLoading(false);
       return;
     }
     
+    setLoading(true);
     const q = query(collection(db, "bets"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const betsData = snapshot.docs.map(doc => ({
@@ -54,7 +56,7 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   // Listen for user's wagers
   useEffect(() => {
@@ -448,5 +450,3 @@ export const useBets = () => {
   }
   return context;
 };
-
-    
