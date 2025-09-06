@@ -14,11 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Layers, X, Loader2, SlidersHorizontal, XCircle } from 'lucide-react';
+import { Layers, X, Loader2 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { iconOptions } from '@/lib/bet-categories';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 
 function ParlayBetSelector({ 
     bet, 
@@ -106,8 +103,6 @@ export default function ParlayBuilderPage() {
   const [selectedLegs, setSelectedLegs] = useState<Record<string, ParlayLeg>>({});
   const [wagerAmount, setWagerAmount] = useState<number | string>(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const legsArray = useMemo(() => Object.values(selectedLegs), [selectedLegs]);
   const potentialPayout = useMemo(() => {
@@ -166,19 +161,8 @@ export default function ParlayBuilderPage() {
   }
 
   const activeBets = useMemo(() => {
-    return bets.filter(b => b.status === 'open' && (selectedCategory === 'all' || b.icon === selectedCategory));
-  }, [bets, selectedCategory]);
-
-  const handleCategorySelect = (category: string) => {
-    setSelectedCategory(category);
-    setIsPopoverOpen(false); // Close popover on selection
-  };
-  
-  const selectedCategoryLabel = useMemo(() => {
-    if (selectedCategory === 'all') return 'All Categories';
-    return iconOptions.find(opt => opt.value === selectedCategory)?.label || 'All Categories';
-  }, [selectedCategory]);
-
+    return bets.filter(b => b.status === 'open');
+  }, [bets]);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -190,47 +174,7 @@ export default function ParlayBuilderPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Bet Selection Area */}
         <div className="lg:col-span-2 space-y-6">
-            <div className="flex justify-between items-center flex-wrap gap-4">
-                <h2 className="font-headline text-3xl font-bold">1. Select Bets</h2>
-                <div className="flex items-center gap-4">
-                    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline">
-                            <SlidersHorizontal className="mr-2 h-4 w-4" />
-                            Filter
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-56 p-2" align="end">
-                            <div className="grid grid-cols-1 gap-1">
-                            <Button 
-                                variant={selectedCategory === 'all' ? "secondary" : "ghost"}
-                                className="w-full justify-start"
-                                onClick={() => handleCategorySelect('all')}>
-                                All Categories
-                            </Button>
-                            {iconOptions.map(option => (
-                                <Button 
-                                key={option.value}
-                                variant={selectedCategory === option.value ? "secondary" : "ghost"}
-                                className="w-full justify-start"
-                                onClick={() => handleCategorySelect(option.value)}>
-                                    <option.icon className="mr-2 h-4 w-4" />
-                                    {option.label}
-                                </Button>
-                            ))}
-                            </div>
-                        </PopoverContent>
-                    </Popover>
-                    {selectedCategory !== 'all' && (
-                        <Badge variant="outline" className="text-sm py-1 px-3 border-dashed">
-                            Filtering by: <span className="font-semibold ml-1">{selectedCategoryLabel}</span>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => setSelectedCategory('all')}>
-                                <XCircle className="h-4 w-4"/>
-                            </Button>
-                        </Badge>
-                    )}
-                </div>
-            </div>
+            <h2 className="font-headline text-3xl font-bold">1. Select Bets</h2>
             {activeBets.length > 0 ? (
                 <div className="space-y-4">
                     {activeBets.map(bet => (
@@ -243,7 +187,7 @@ export default function ParlayBuilderPage() {
                     ))}
                 </div>
             ) : (
-                <Card className="text-center p-8 text-muted-foreground border-dashed">No active bets are available for the selected category.</Card>
+                <Card className="text-center p-8 text-muted-foreground border-dashed">No active bets are available to build a parlay.</Card>
             )}
         </div>
 
