@@ -50,14 +50,12 @@ const betFormSchema = z.discriminatedUnion('type', [
 type BetFormValues = z.infer<typeof betFormSchema>;
 
 export default function AdminPage() {
-    const { bets, addBet, settleBet, resetGame } = useBets();
+    const { bets, addBet, settleBet } = useBets();
     const { userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isResettng, setIsResetting] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
-    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
     const form = useForm<BetFormValues>({
@@ -125,26 +123,6 @@ export default function AdminPage() {
             await settleBet(betToSettle.id, winningOutcome);
             setBetToSettle(null);
             setWinningOutcome('');
-        }
-    }
-
-    const handleResetGame = async () => {
-        setIsResetting(true);
-        try {
-            await resetGame();
-            toast({
-                title: 'Game Reset Successful',
-                description: 'All bets, wagers, and parlays have been cleared. Player balances are restored to 1,000.',
-            });
-        } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Reset Failed',
-                description: error.message || 'An unexpected error occurred during the game reset.',
-            });
-        } finally {
-            setIsResetting(false);
-            setShowResetConfirm(false);
         }
     }
     
@@ -353,27 +331,6 @@ export default function AdminPage() {
                     <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setBetToSettle(null)}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleSettleBet}>Settle Bet</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete all bets, wagers, and parlays, and reset all player balances to 1,000 points.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                        onClick={handleResetGame}
-                        disabled={isResettng}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                        {isResettng ? <Loader2 className="animate-spin" /> : "Yes, reset the game"}
-                    </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

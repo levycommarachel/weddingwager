@@ -300,7 +300,7 @@ export default function LoginPage() {
             <AlertDialogHeader>
             <AlertDialogTitle>Pay to Play Agreement</AlertDialogTitle>
             <AlertDialogDescription>
-                This is placeholder text. By checking this box, you acknowledge that you are participating in this betting pool with real money and agree to the terms and conditions set forth by the organizers. All financial transactions are your own responsibility. Please play responsibly.
+                By checking this box, you acknowledge that you are participating in this betting pool with real money and agree to the terms and conditions set forth by the organizers. All financial transactions are your own responsibility. Please play responsibly. Reach out to Mel and Danny with Questions.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
