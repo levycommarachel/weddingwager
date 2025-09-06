@@ -62,7 +62,7 @@ export default function AdminPage() {
         resolver: zodResolver(betFormSchema),
         defaultValues: {
             question: '',
-            icon: 'Users',
+            icon: 'Ceremony',
             type: 'number',
         },
         // Re-evaluate the entire form when type changes
@@ -102,7 +102,7 @@ export default function AdminPage() {
             await addBet(newBetData);
             form.reset({
                 question: '',
-                icon: 'Users',
+                icon: 'Ceremony',
                 type: 'number',
             });
         } catch (error) {

@@ -132,28 +132,28 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       
       const bet1Data = {
         question: "Will Michelle wear a veil?",
-        type: 'options', options: ['Yes', 'No'], icon: 'Heart',
+        type: 'options', options: ['Yes', 'No'], icon: 'Ceremony',
         pool: 0, status: 'open', createdAt: serverTimestamp(),
       };
       batch.set(doc(betsCollectionRef), bet1Data);
 
       const bet2Data = {
         question: "Will the ceremony be longer than 30 minutes (including the processional and recessional)?",
-        type: 'options', options: ['Yes', 'No'], icon: 'Clock',
+        type: 'options', options: ['Yes', 'No'], icon: 'Ceremony',
         pool: 0, status: 'open', createdAt: serverTimestamp(),
       };
       batch.set(doc(betsCollectionRef), bet2Data);
 
       const bet3Data = {
         question: "Will Adam cry during the ceremony?",
-        type: 'options', options: ['Yes', 'No'], icon: 'Users',
+        type: 'options', options: ['Yes', 'No'], icon: 'Ceremony',
         pool: 0, status: 'open', createdAt: serverTimestamp(),
       };
       batch.set(doc(betsCollectionRef), bet3Data);
       
       const bet4Data = {
         question: "How many speeches will there be during the reception?",
-        type: 'number', icon: 'Mic',
+        type: 'number', icon: 'Reception',
         pool: 0, status: 'open', createdAt: serverTimestamp(),
       };
       batch.set(doc(betsCollectionRef), bet4Data);
