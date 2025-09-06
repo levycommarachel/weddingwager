@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -50,11 +50,13 @@ const betFormSchema = z.discriminatedUnion('type', [
 type BetFormValues = z.infer<typeof betFormSchema>;
 
 export default function AdminPage() {
-    const { bets, addBet, settleBet } = useBets();
+    const { bets, addBet, settleBet, resetGame } = useBets();
     const { userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
+    const [isResetModalOpen, setIsResetModalOpen] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
@@ -124,6 +126,26 @@ export default function AdminPage() {
             setWinningOutcome('');
         }
     }
+    
+    const handleResetGame = async () => {
+        setIsResetting(true);
+        try {
+            await resetGame();
+            toast({
+                title: 'Game Reset!',
+                description: 'All bets, wagers, and balances have been reset.',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Reset Failed',
+                description: error.message || 'Could not reset the game.',
+            });
+        } finally {
+            setIsResetting(false);
+            setIsResetModalOpen(false);
+        }
+    };
     
     if (userLoading) {
         return (
@@ -252,6 +274,22 @@ export default function AdminPage() {
                                 </Form>
                             </CardContent>
                         </Card>
+                        <Card className="border-destructive/50">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 font-headline text-2xl text-destructive">
+                                    <RefreshCw />
+                                    Reset Game
+                                </CardTitle>
+                                <CardDescription>
+                                    This will permanently delete all bets, wagers, and parlays, and reset all player balances to 1,000. This action cannot be undone.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Button variant="destructive" className="w-full" onClick={() => setIsResetModalOpen(true)}>
+                                    Reset Game Data
+                                </Button>
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="lg:col-span-2">
@@ -324,6 +362,24 @@ export default function AdminPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+            
+            <AlertDialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action is permanent and cannot be undone. It will delete all bets, wagers, and parlays, and reset all player balances.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleResetGame} disabled={isResetting} className="bg-destructive hover:bg-destructive/90">
+                            {isResetting ? <Loader2 className="animate-spin" /> : "Yes, reset everything"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
         </>
     );
 }

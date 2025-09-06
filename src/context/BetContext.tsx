@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { db, firebaseEnabled } from '@/lib/firebase';
-import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, orderBy } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, serverTimestamp, doc, runTransaction, query, where, writeBatch, getDocs, type Firestore, getDoc, increment, orderBy, deleteDoc } from 'firebase/firestore';
 import type { Bet, Wager, Parlay, ParlayLeg, Timestamp } from '@/types';
 import { useUser } from './UserContext';
 
@@ -20,6 +20,7 @@ interface BetContextType {
   updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
   createParlay: (legs: ParlayLeg[], amount: number) => Promise<void>;
   updateParlay: (parlayId: string, newAmount: number) => Promise<void>;
+  resetGame: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -123,7 +124,8 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       let querySnapshot = await getDocs(query(betsCollectionRef));
       
       if (!querySnapshot.empty) {
-        return; // Don't seed if bets already exist
+        // If you want to ensure it only seeds if EMPTY, uncomment the line below
+        // return; 
       }
       
       const batch = writeBatch(db);
@@ -166,7 +168,6 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       } as Bet));
       setBets(betsData);
 
-      toast({ title: 'Success!', description: 'Initial bets have been seeded.' });
     } catch (error) {
       console.error("Error seeding bets: ", error);
       toast({ variant: 'destructive', title: 'Error', description: 'Could not seed initial bets.' });
@@ -434,10 +435,51 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       toast({ variant: 'destructive', title: 'Error Settling Wagers', description: errorMessage });
     }
   };
+  
+  const resetGame = async () => {
+    if (!firebaseEnabled || !db) {
+        showFirebaseDisabledToast();
+        throw new Error("Firebase is not configured.");
+    }
+    const collectionsToDelete = ['bets', 'wagers'];
+    const batch = writeBatch(db);
+
+    try {
+        // Delete all documents in bets and wagers collections
+        for (const collectionName of collectionsToDelete) {
+            const collectionRef = collection(db, collectionName);
+            const snapshot = await getDocs(collectionRef);
+            snapshot.docs.forEach(doc => batch.delete(doc.ref));
+        }
+
+        // Reset all user balances and delete their parlays
+        const usersCollectionRef = collection(db, 'users');
+        const usersSnapshot = await getDocs(usersCollectionRef);
+
+        for (const userDoc of usersSnapshot.docs) {
+            // Reset balance
+            batch.update(userDoc.ref, { balance: 1000 });
+
+            // Delete parlays subcollection
+            const parlaysCollectionRef = collection(userDoc.ref, 'parlays');
+            const parlaysSnapshot = await getDocs(parlaysCollectionRef);
+            parlaysSnapshot.forEach(parlayDoc => batch.delete(parlayDoc.ref));
+        }
+
+        await batch.commit();
+
+        // After clearing, seed the new initial bets
+        await seedInitialBets();
+
+    } catch (error) {
+        console.error("Error resetting game:", error);
+        throw new Error("Failed to reset game data.");
+    }
+  };
 
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay, updateParlay }}>
+    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay, updateParlay, resetGame }}>
       {children}
     </BetContext.Provider>
   );
