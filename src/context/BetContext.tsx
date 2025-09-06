@@ -441,28 +441,24 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
         showFirebaseDisabledToast();
         throw new Error("Firebase is not configured.");
     }
-    const collectionsToDelete = ['bets', 'wagers'];
     const batch = writeBatch(db);
 
     try {
         // Delete all documents in bets and wagers collections
-        for (const collectionName of collectionsToDelete) {
-            const collectionRef = collection(db, collectionName);
-            const snapshot = await getDocs(collectionRef);
-            snapshot.docs.forEach(doc => batch.delete(doc.ref));
-        }
+        const betsSnapshot = await getDocs(collection(db, 'bets'));
+        betsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+
+        const wagersSnapshot = await getDocs(collection(db, 'wagers'));
+        wagersSnapshot.docs.forEach(doc => batch.delete(doc.ref));
 
         // Reset all user balances and delete their parlays
-        const usersCollectionRef = collection(db, 'users');
-        const usersSnapshot = await getDocs(usersCollectionRef);
-
+        const usersSnapshot = await getDocs(collection(db, 'users'));
         for (const userDoc of usersSnapshot.docs) {
             // Reset balance
             batch.update(userDoc.ref, { balance: 1000 });
 
             // Delete parlays subcollection
-            const parlaysCollectionRef = collection(userDoc.ref, 'parlays');
-            const parlaysSnapshot = await getDocs(parlaysCollectionRef);
+            const parlaysSnapshot = await getDocs(collection(userDoc.ref, 'parlays'));
             parlaysSnapshot.forEach(parlayDoc => batch.delete(parlayDoc.ref));
         }
 
@@ -492,3 +488,5 @@ export const useBets = () => {
   }
   return context;
 };
+
+    
