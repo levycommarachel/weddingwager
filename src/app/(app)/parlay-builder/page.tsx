@@ -188,7 +188,7 @@ export default function ParlayBuilderPage() {
                         Filter
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2">
+                    <PopoverContent className="w-56 p-2" align="end">
                         <div className="grid grid-cols-1 gap-1">
                         <Button 
                             variant={selectedCategory === 'all' ? "secondary" : "ghost"}

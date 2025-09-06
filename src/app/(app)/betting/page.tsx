@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -35,7 +36,7 @@ export default function BettingPage() {
               Filter by Category
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 p-2">
+          <PopoverContent className="w-56 p-2" align="center">
              <div className="grid grid-cols-1 gap-1">
                 <Button 
                     variant={selectedCategory === 'all' ? "secondary" : "ghost"}
