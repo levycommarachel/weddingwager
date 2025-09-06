@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
@@ -20,7 +21,6 @@ interface BetContextType {
   updateWager: (wagerId: string, betId: string, oldAmount: number, newAmount: number, newOutcome: string | number) => Promise<void>;
   createParlay: (legs: ParlayLeg[], amount: number) => Promise<void>;
   updateParlay: (parlayId: string, newAmount: number) => Promise<void>;
-  resetGame: () => Promise<void>;
 }
 
 const BetContext = createContext<BetContextType | undefined>(undefined);
@@ -435,47 +435,10 @@ export const BetProvider = ({ children }: { children: ReactNode }) => {
       toast({ variant: 'destructive', title: 'Error Settling Wagers', description: errorMessage });
     }
   };
-  
-  const resetGame = async () => {
-    if (!firebaseEnabled || !db) {
-        showFirebaseDisabledToast();
-        throw new Error("Firebase is not configured.");
-    }
-    const batch = writeBatch(db);
-
-    try {
-        // Delete all documents in bets and wagers collections
-        const betsSnapshot = await getDocs(collection(db, 'bets'));
-        betsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
-        const wagersSnapshot = await getDocs(collection(db, 'wagers'));
-        wagersSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-
-        // Reset all user balances and delete their parlays
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        for (const userDoc of usersSnapshot.docs) {
-            // Reset balance
-            batch.update(userDoc.ref, { balance: 1000 });
-
-            // Delete parlays subcollection
-            const parlaysSnapshot = await getDocs(collection(userDoc.ref, 'parlays'));
-            parlaysSnapshot.forEach(parlayDoc => batch.delete(parlayDoc.ref));
-        }
-
-        await batch.commit();
-
-        // After clearing, seed the new initial bets
-        await seedInitialBets();
-
-    } catch (error) {
-        console.error("Error resetting game:", error);
-        throw new Error("Failed to reset game data.");
-    }
-  };
 
 
   return (
-    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay, updateParlay, resetGame }}>
+    <BetContext.Provider value={{ bets, myWagers, myParlays, loading, addBet, placeBet, updateWager, settleBet, seedInitialBets, createParlay, updateParlay }}>
       {children}
     </BetContext.Provider>
   );
@@ -488,5 +451,3 @@ export const useBets = () => {
   }
   return context;
 };
-
-    
