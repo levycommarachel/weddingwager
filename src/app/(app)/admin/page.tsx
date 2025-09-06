@@ -104,7 +104,6 @@ export default function AdminPage() {
                 question: '',
                 icon: 'Ceremony',
                 type: 'number',
-                options: [{ value: '' }, { value: '' }],
             });
         } catch (error) {
             console.error("Failed to add bet:", error);
