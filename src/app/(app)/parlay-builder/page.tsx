@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Layers, X, Loader2, SlidersHorizontal } from 'lucide-react';
+import { Layers, X, Loader2, SlidersHorizontal, XCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { iconOptions } from '@/lib/bet-categories';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 function ParlayBetSelector({ 
     bet, 
@@ -49,7 +50,7 @@ function ParlayBetSelector({
   if (bet.type === 'number') {
     const isSelected = betValue !== undefined;
     return (
-      <Card className={`transition-all ${isSelected ? 'border-primary-foreground/50 shadow-lg' : ''}`}>
+      <Card className={`transition-all ${isSelected ? 'border-primary' : ''}`}>
         <CardHeader>
             <CardTitle>{bet.question}</CardTitle>
         </CardHeader>
@@ -73,7 +74,7 @@ function ParlayBetSelector({
   
   // Component for options
   return (
-    <Card className={betValue !== undefined ? 'border-primary-foreground/50 shadow-lg' : ''}>
+    <Card className={betValue !== undefined ? 'border-primary' : ''}>
         <CardHeader>
             <CardTitle>{bet.question}</CardTitle>
         </CardHeader>
@@ -84,7 +85,7 @@ function ParlayBetSelector({
                 className="mt-2 grid grid-cols-2 gap-2"
             >
                 {bet.options?.map((option) => (
-                    <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary-foreground/50 transition-colors cursor-pointer">
+                    <Label key={option} className="flex items-center space-x-2 rounded-md border p-3 hover:bg-accent has-[>[data-state=checked]]:bg-accent has-[>[data-state=checked]]:border-primary transition-colors cursor-pointer">
                         <RadioGroupItem value={option} id={`${bet.id}-${option}`} />
                         <span>{option}</span>
                     </Label>
@@ -106,6 +107,7 @@ export default function ParlayBuilderPage() {
   const [wagerAmount, setWagerAmount] = useState<number | string>(100);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   const legsArray = useMemo(() => Object.values(selectedLegs), [selectedLegs]);
   const potentialPayout = useMemo(() => {
@@ -114,7 +116,6 @@ export default function ParlayBuilderPage() {
     // Using a simple 2^n multiplier for odds
     return Math.floor(amount * Math.pow(2, legsArray.length));
   }, [wagerAmount, legsArray.length]);
-
 
   const handleSelectLeg = (leg: ParlayLeg | null) => {
     if (leg === null || leg.betId === undefined) return;
@@ -168,6 +169,16 @@ export default function ParlayBuilderPage() {
     return bets.filter(b => b.status === 'open' && (selectedCategory === 'all' || b.icon === selectedCategory));
   }, [bets, selectedCategory]);
 
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setIsPopoverOpen(false); // Close popover on selection
+  };
+  
+  const selectedCategoryLabel = useMemo(() => {
+    if (selectedCategory === 'all') return 'All Categories';
+    return iconOptions.find(opt => opt.value === selectedCategory)?.label || 'All Categories';
+  }, [selectedCategory]);
+
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -179,36 +190,46 @@ export default function ParlayBuilderPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         {/* Bet Selection Area */}
         <div className="lg:col-span-2 space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-4">
                 <h2 className="font-headline text-3xl font-bold">1. Select Bets</h2>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline">
-                        <SlidersHorizontal className="mr-2 h-4 w-4" />
-                        Filter
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56 p-2" align="end">
-                        <div className="grid grid-cols-1 gap-1">
-                        <Button 
-                            variant={selectedCategory === 'all' ? "secondary" : "ghost"}
-                            className="w-full justify-start"
-                            onClick={() => setSelectedCategory('all')}>
-                            All Categories
-                        </Button>
-                        {iconOptions.map(option => (
-                            <Button 
-                            key={option.value}
-                            variant={selectedCategory === option.value ? "secondary" : "ghost"}
-                            className="w-full justify-start"
-                            onClick={() => setSelectedCategory(option.value)}>
-                                <option.icon className="mr-2 h-4 w-4" />
-                                {option.label}
+                <div className="flex items-center gap-4">
+                    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline">
+                            <SlidersHorizontal className="mr-2 h-4 w-4" />
+                            Filter
                             </Button>
-                        ))}
-                        </div>
-                    </PopoverContent>
-                </Popover>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-56 p-2" align="end">
+                            <div className="grid grid-cols-1 gap-1">
+                            <Button 
+                                variant={selectedCategory === 'all' ? "secondary" : "ghost"}
+                                className="w-full justify-start"
+                                onClick={() => handleCategorySelect('all')}>
+                                All Categories
+                            </Button>
+                            {iconOptions.map(option => (
+                                <Button 
+                                key={option.value}
+                                variant={selectedCategory === option.value ? "secondary" : "ghost"}
+                                className="w-full justify-start"
+                                onClick={() => handleCategorySelect(option.value)}>
+                                    <option.icon className="mr-2 h-4 w-4" />
+                                    {option.label}
+                                </Button>
+                            ))}
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                    {selectedCategory !== 'all' && (
+                        <Badge variant="outline" className="text-sm py-1 px-3 border-dashed">
+                            Filtering by: <span className="font-semibold ml-1">{selectedCategoryLabel}</span>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => setSelectedCategory('all')}>
+                                <XCircle className="h-4 w-4"/>
+                            </Button>
+                        </Badge>
+                    )}
+                </div>
             </div>
             {activeBets.length > 0 ? (
                 <div className="space-y-4">
@@ -245,6 +266,7 @@ export default function ParlayBuilderPage() {
                                 <div key={leg.betId} className="flex justify-between items-center text-sm p-2 bg-muted/50 rounded-md">
                                     <div>
                                         <p className="font-semibold truncate w-48">{leg.question}</p>
+
                                         <p className="text-muted-foreground">Pick: {String(leg.outcome)}</p>
                                     </div>
                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveLeg(leg.betId)}>
@@ -275,7 +297,7 @@ export default function ParlayBuilderPage() {
                     {legsArray.length > 1 && (
                         <div className="text-right bg-accent/50 p-4 rounded-md">
                             <p className="text-muted-foreground">Potential Payout:</p>
-                            <p className="font-bold text-2xl text-accent-foreground">{potentialPayout.toLocaleString()} Pts</p>
+                            <p className="font-bold text-2xl text-primary">{potentialPayout.toLocaleString()} Pts</p>
                         </div>
                     )}
 

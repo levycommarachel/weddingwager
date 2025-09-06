@@ -4,14 +4,16 @@
 import { useState, useMemo } from 'react';
 import BetCard from "@/components/bet-card";
 import { useBets } from "@/context/BetContext";
-import { Archive, Gem, SlidersHorizontal } from "lucide-react";
+import { Archive, Gem, SlidersHorizontal, XCircle } from "lucide-react";
 import { iconOptions } from '@/lib/bet-categories';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 export default function BettingPage() {
   const { bets } = useBets();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   
   const activeBets = useMemo(() => {
     return bets.filter(bet => bet.status === 'open' && (selectedCategory === 'all' || bet.icon === selectedCategory));
@@ -20,6 +22,16 @@ export default function BettingPage() {
   const closedBets = useMemo(() => {
     return bets.filter(bet => bet.status !== 'open' && (selectedCategory === 'all' || bet.icon === selectedCategory));
   }, [bets, selectedCategory]);
+  
+  const handleCategorySelect = (category: string) => {
+    setSelectedCategory(category);
+    setIsPopoverOpen(false); // Close popover on selection
+  };
+
+  const selectedCategoryLabel = useMemo(() => {
+    if (selectedCategory === 'all') return 'All Categories';
+    return iconOptions.find(opt => opt.value === selectedCategory)?.label || 'All Categories';
+  }, [selectedCategory]);
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -28,8 +40,8 @@ export default function BettingPage() {
         <p className="text-muted-foreground mt-2 text-lg">Place your bets on active wagers or review past results.</p>
       </div>
       
-      <div className="flex justify-center mb-8">
-        <Popover>
+      <div className="flex justify-center items-center gap-4 mb-8">
+        <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <PopoverTrigger asChild>
             <Button variant="outline">
               <SlidersHorizontal className="mr-2 h-4 w-4" />
@@ -41,7 +53,7 @@ export default function BettingPage() {
                 <Button 
                     variant={selectedCategory === 'all' ? "secondary" : "ghost"}
                     className="w-full justify-start"
-                    onClick={() => setSelectedCategory('all')}>
+                    onClick={() => handleCategorySelect('all')}>
                     All Categories
                 </Button>
               {iconOptions.map(option => (
@@ -49,7 +61,7 @@ export default function BettingPage() {
                   key={option.value}
                   variant={selectedCategory === option.value ? "secondary" : "ghost"}
                   className="w-full justify-start"
-                  onClick={() => setSelectedCategory(option.value)}>
+                  onClick={() => handleCategorySelect(option.value)}>
                     <option.icon className="mr-2 h-4 w-4" />
                     {option.label}
                 </Button>
@@ -57,6 +69,15 @@ export default function BettingPage() {
             </div>
           </PopoverContent>
         </Popover>
+
+        {selectedCategory !== 'all' && (
+            <Badge variant="outline" className="text-sm py-1 px-3 border-dashed">
+                Filtering by: <span className="font-semibold ml-1">{selectedCategoryLabel}</span>
+                <Button variant="ghost" size="icon" className="h-5 w-5 ml-1" onClick={() => setSelectedCategory('all')}>
+                    <XCircle className="h-4 w-4"/>
+                </Button>
+            </Badge>
+        )}
       </div>
 
       <div className="space-y-16">
