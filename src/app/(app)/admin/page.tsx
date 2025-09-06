@@ -3,7 +3,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useBets } from '@/context/BetContext';
@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle } from 'lucide-react';
+import { Trash2, PlusCircle, Shield, ListCollapse, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
@@ -50,12 +50,14 @@ const betFormSchema = z.discriminatedUnion('type', [
 type BetFormValues = z.infer<typeof betFormSchema>;
 
 export default function AdminPage() {
-    const { bets, addBet, settleBet } = useBets();
+    const { bets, addBet, settleBet, resetGame } = useBets();
     const { userData, loading: userLoading } = useUser();
     const { toast } = useToast();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isResettng, setIsResetting] = useState(false);
     const [betToSettle, setBetToSettle] = useState<Bet | null>(null);
+    const [showResetConfirm, setShowResetConfirm] = useState(false);
     const [winningOutcome, setWinningOutcome] = useState<string | number>('');
     
     const form = useForm<BetFormValues>({
@@ -83,7 +85,7 @@ export default function AdminPage() {
 
     const { fields, append, remove } = useFieldArray({
         control: form.control,
-        name: "options"
+        name: "options",
     });
 
     async function onSubmit(values: BetFormValues) {
@@ -104,6 +106,7 @@ export default function AdminPage() {
                 question: '',
                 icon: 'Ceremony',
                 type: 'number',
+                options: [{ value: '' }, { value: '' }],
             });
         } catch (error) {
             console.error("Failed to add bet:", error);
@@ -122,6 +125,26 @@ export default function AdminPage() {
             await settleBet(betToSettle.id, winningOutcome);
             setBetToSettle(null);
             setWinningOutcome('');
+        }
+    }
+
+    const handleResetGame = async () => {
+        setIsResetting(true);
+        try {
+            await resetGame();
+            toast({
+                title: 'Game Reset Successful',
+                description: 'All bets, wagers, and parlays have been cleared. Player balances are restored to 1,000.',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Reset Failed',
+                description: error.message || 'An unexpected error occurred during the game reset.',
+            });
+        } finally {
+            setIsResetting(false);
+            setShowResetConfirm(false);
         }
     }
     
@@ -228,18 +251,26 @@ export default function AdminPage() {
                                                 <FormLabel>Options</FormLabel>
                                                 {fields.map((field, index) => (
                                                     <div key={field.id} className="flex items-center gap-2">
-                                                        <FormField control={form.control} name={`options.${index}.value`} render={({ field }) => (
-                                                            <FormItem className="flex-1">
-                                                                <FormControl><Input {...field} placeholder={`Option ${index + 1}`} /></FormControl>
-                                                                <FormMessage/>
-                                                            </FormItem>
-                                                        )} />
+                                                        <Controller
+                                                            control={form.control}
+                                                            name={`options.${index}.value`}
+                                                            defaultValue=""
+                                                            render={({ field, fieldState }) => (
+                                                                <FormItem className="flex-1">
+                                                                    <FormControl>
+                                                                        <Input {...field} placeholder={`Option ${index + 1}`} />
+                                                                    </FormControl>
+                                                                    <FormMessage>{fieldState.error?.message}</FormMessage>
+                                                                </FormItem>
+                                                            )}
+                                                        />
                                                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} disabled={fields.length <= 2}>
                                                             <Trash2 className="h-4 w-4" />
                                                         </Button>
                                                     </div>
                                                 ))}
-                                                <Button type="button" variant="outline" size="sm" onClick={() => append({value: ''})}>
+
+                                                <Button type="button" variant="outline" size="sm" onClick={() => append({ value: '' })}>
                                                     <PlusCircle className="mr-2 h-4 w-4" /> Add Option
                                                 </Button>
                                                 <FormField name="options" render={() => <FormMessage />} />
@@ -252,6 +283,7 @@ export default function AdminPage() {
                                 </Form>
                             </CardContent>
                         </Card>
+
                     </div>
 
                     <div className="lg:col-span-2">
@@ -321,6 +353,27 @@ export default function AdminPage() {
                     <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setBetToSettle(null)}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleSettleBet}>Settle Bet</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog open={showResetConfirm} onOpenChange={setShowResetConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete all bets, wagers, and parlays, and reset all player balances to 1,000 points.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleResetGame}
+                        disabled={isResettng}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                        {isResettng ? <Loader2 className="animate-spin" /> : "Yes, reset the game"}
+                    </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
